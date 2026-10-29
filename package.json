@@ -9,7 +9,7 @@
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "test:e2e": "playwright test",
-    "test:coverage": "node --experimental-strip-types --experimental-test-coverage --test tests/*.test.mjs"
+    "test:coverage": "node --experimental-strip-types --experimental-test-coverage --test --test-coverage-include='src/lib/*.ts' --test-coverage-lines=95 --test-coverage-branches=80 --test-coverage-functions=95 tests/*.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

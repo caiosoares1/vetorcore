@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {toCents,quoteTotals} from '../src/lib/quoteMath.ts';
+import {toCents,quoteTotals,fmtCents} from '../src/lib/quoteMath.ts';
 
 test('converte reais em centavos sem erros de float',()=>{
  assert.equal(toCents('5,99'),599);
@@ -15,3 +15,19 @@ test('calcula subtotal e total com desconto',()=>{
 });
 test('recusa desconto superior ao subtotal',()=>{assert.throws(()=>quoteTotals([{quantity:1,unitPriceCents:100}],101));});
 test('recusa itens com quantidade inválida',()=>{assert.throws(()=>quoteTotals([{quantity:-1,unitPriceCents:100}],0));});
+
+test('formata centavos em moeda brasileira',()=>{
+ assert.match(fmtCents(123456),/1\.234,56/);
+ assert.match(fmtCents(0),/0,00/);
+});
+test('permite orçamento sem desconto e sem itens somente na função aritmética',()=>{
+ assert.deepEqual(quoteTotals([],0),{subtotal:0,total:0});
+});
+test('rejeita desconto negativo',()=>{
+ assert.throws(()=>quoteTotals([{quantity:1,unitPriceCents:100}],-1));
+});
+test('rejeita preço unitário negativo, fracionário e subtotal fora do limite',()=>{
+ assert.throws(()=>quoteTotals([{quantity:1,unitPriceCents:-1}],0));
+ assert.throws(()=>quoteTotals([{quantity:1,unitPriceCents:1.2}],0));
+ assert.throws(()=>quoteTotals([{quantity:999999999,unitPriceCents:Number.MAX_SAFE_INTEGER}],0));
+});

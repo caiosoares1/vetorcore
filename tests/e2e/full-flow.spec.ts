@@ -1,4 +1,5 @@
 import {test,expect,type Page} from '@playwright/test';
+import {readFile} from 'node:fs/promises';
 import {mockBackend,loginAsMockUser,seededProduct,seededCustomer,seededSupplier} from './support/mockSupabase';
 
 async function openPage(page:Page,name:string){
@@ -135,7 +136,7 @@ test('clientes e fornecedores são cadastrados e editados',async({page})=>{
  await expect(d).not.toBeVisible();
  expect(mock.store.customers[0].phone).toBe('(83) 99999-9999');
  await openPage(page,'Fornecedores');
- await page.getByRole('button',{name:'Novo fornecedor'}).click();
+ await page.locator('.page-heading .add-button').click();
  d=dialog(page);
  await d.getByLabel('Nome / razão social').fill('Distribuidora Central');
  await d.getByLabel('Categoria de fornecimento').fill('Papel');
@@ -190,7 +191,7 @@ test('monta orçamento, aprova, converte em pedido e conclui',async({page})=>{
  await openPage(page,'Pedidos');
  await expect(page.getByText('PEDIDO #00001',{exact:false})).toBeVisible();
  await page.getByRole('button',{name:'Marcar concluído'}).click();
- await expect(page.getByText('Concluído')).toBeVisible();
+ await expect(page.getByText('Concluído',{exact:true})).toBeVisible();
  expect(mock.store.orders[0].status).toBe('Concluído');
 });
 
@@ -215,6 +216,9 @@ test('exporta PDF com nome esperado',async({page})=>{
  await page.getByRole('button',{name:'PDF'}).click();
  const download=await downloadEvent;
  expect(download.suggestedFilename()).toBe('vetorcore-orcamento-1.pdf');
+ const pdf=await readFile(await download.path());
+ expect(pdf.subarray(0,5).toString('ascii')).toBe('%PDF-');
+ expect(pdf.length).toBeGreaterThan(1000);
 });
 
 test('produtos arquivados não podem ser selecionados em novos orçamentos',async({page})=>{
