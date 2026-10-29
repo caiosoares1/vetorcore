@@ -2,6 +2,7 @@ import {useState,type FormEvent} from 'react';
 import {ArrowDownCircle,ArrowUpCircle,CheckCircle2,Package,Save,UserRound,Truck} from 'lucide-react';
 import EditorSheet from './EditorSheet';
 import {supabase} from '../lib/supabase';
+import {productPayload,partyPayload,movementDelta} from '../lib/domain';
 
 export type Product={
   id:string; name:string; sku:string; category:string; cost:number;
@@ -19,11 +20,6 @@ export type EditorTarget=
   | {kind:'movement'; product:Product; direction:'Entrada'|'Saída'};
 
 type Common={close:()=>void; saved:(message:string)=>Promise<void>};
-const money=(v:string)=>{
-  const parsed=Number(v.trim().replace(',','.'));
-  if(!Number.isFinite(parsed)||parsed<0||!Number.isSafeInteger(Math.round(parsed*100)))throw new Error('Informe um valor monetário válido.');
-  return Math.round(parsed*100);
-};
 function FormError({message}:{message:string}){
   return message?<div className="form-error" role="alert">{message}</div>:null;
 }
@@ -47,12 +43,7 @@ function ProductForm({item,suppliers,close,saved}:{item?:Product;suppliers:Party
     e.preventDefault();const client=supabase;if(!client)return;
     setError('');
     try{
-      const n=name.trim(),code=sku.trim();
-      if(n.length<2)throw new Error('Informe um nome com pelo menos 2 caracteres.');
-      if(!code)throw new Error('Informe o código do produto.');
-      const minimum=Number(min);
-      if(!Number.isSafeInteger(minimum)||minimum<0)throw new Error('Estoque mínimo deve ser um número inteiro não negativo.');
-      const payload={name:n,sku:code,category:category.trim()||'Outros',supplier_id:supplierId||null,cost_cents:money(cost),price_cents:money(price),min_qty:minimum};
+      const payload=productPayload({name,sku,category,supplierId,cost,price,min});
       setPending(true);
       const result=item?await client.from('products').update(payload).eq('id',item.id).select('id').single():await client.from('products').insert(payload);
       if(result.error)throw result.error;
@@ -97,11 +88,9 @@ function PartyForm({table,item,close,saved}:{table:'customers'|'suppliers';item?
   async function submit(e:FormEvent<HTMLFormElement>){
     e.preventDefault();const client=supabase;if(!client)return;
     setError('');
-    const n=name.trim();
-    if(n.length<2){setError('Informe um nome com pelo menos 2 caracteres.');return;}
-    const payload={name:n,doc:doc.trim(),phone:phone.trim(),email:email.trim(),...(isSupplier?{category:category.trim()}:{})};
     setPending(true);
     try{
+      const payload=partyPayload({name,doc,phone,email,category},isSupplier);
       const result=item?await client.from(table).update(payload).eq('id',item.id).select('id').single():await client.from(table).insert(payload);
       if(result.error)throw result.error;
       await saved((isSupplier?'Fornecedor':'Cliente')+(item?' atualizado':' cadastrado')+' com sucesso.');
@@ -136,11 +125,10 @@ function MovementForm({product,direction,close,saved}:{product:Product;direction
   const after=valid?product.qty+(isEntry?number:-number):null;
   async function submit(e:FormEvent<HTMLFormElement>){
     e.preventDefault();const client=supabase;if(!client)return;
-    if(!valid){setError('Informe uma quantidade inteira maior que zero.');return;}
-    if(!isEntry&&number>product.qty){setError('Quantidade maior que o estoque disponível.');return;}
     setError('');setPending(true);
     try{
-      const {error}=await client.rpc('record_stock_movement',{p_product_id:product.id,p_delta:isEntry?number:-number,p_note:note.trim()});
+      const delta=movementDelta(quantity,product.qty,direction);
+      const {error}=await client.rpc('record_stock_movement',{p_product_id:product.id,p_delta:delta,p_note:note.trim()});
       if(error)throw error;
       await saved((isEntry?'Entrada':'Saída')+' registrada com sucesso.');
     }catch(e){setError(e instanceof Error?e.message:'Não foi possível registrar a movimentação.');}

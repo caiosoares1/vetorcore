@@ -3,6 +3,7 @@ import {AlertCircle,ArrowDownCircle,ArrowUpCircle,ArrowDownUp,Box,CheckCircle2,C
 import {supabase} from './lib/supabase';
 import RecordEditor,{type Product,type Party,type Movement,type EditorTarget} from './components/RecordEditor';
 import CommercePages from './components/CommercePages';
+import {inventoryStats} from './lib/domain';
 
 type Page='home'|'products'|'quotes'|'orders'|'suppliers'|'customers'|'moves';
 const navItems=[
@@ -62,8 +63,7 @@ export default function App(){
  useEffect(()=>{void refresh();},[]);
  useEffect(()=>{if(!toast)return;const timer=window.setTimeout(()=>setToast(''),4400);return()=>window.clearTimeout(timer);},[toast]);
 
- const lowStock=products.filter(p=>!p.archivedAt&&p.qty<=p.min).length;
- const inventoryValue=products.filter(p=>!p.archivedAt).reduce((total,p)=>total+p.qty*p.cost,0);
+ const {activeProducts,lowStock,inventoryCost:inventoryValue}=inventoryStats(products);
  const filtered=useMemo(()=>{
    const q=search.toLocaleLowerCase('pt-BR').trim();
    return {
@@ -99,7 +99,7 @@ export default function App(){
        {page==='home'?<>
          <div className="welcome"><div><span className="eyebrow">VISÃO GERAL</span><h2>Bem-vindo ao Vetor Hub.</h2><p>Acompanhe sua operação em um só lugar.</p></div><button className="button-secondary refresh-button" type="button" disabled={refreshing} onClick={()=>void refresh(true)}><RefreshCw size={16} className={refreshing?'spinning':''}/> Atualizar</button></div>
          <div className="stats">
-           <article><span>Produtos ativos</span><strong>{loading?'—':products.filter(p=>!p.archivedAt).length}</strong><span className="stat-bottom">Itens no catálogo</span></article>
+           <article><span>Produtos ativos</span><strong>{loading?'—':activeProducts}</strong><span className="stat-bottom">Itens no catálogo</span></article>
            <article><span>Estoque baixo</span><strong>{loading?'—':lowStock}</strong><span className={'stat-bottom'+(lowStock?' stat-warning':'')}>{lowStock?'Precisam de atenção':'Tudo em dia'}</span></article>
            <article><span>Valor em estoque (custo)</span><strong className="money-stat">{loading?'—':currency(inventoryValue)}</strong><span className="stat-bottom">Estimativa pelo custo cadastrado</span></article>
          </div>

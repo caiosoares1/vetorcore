@@ -3,6 +3,7 @@ import {Check,CheckCircle2,Download,FileText,Plus,RefreshCw,ShoppingBag,Trash2,X
 import {supabase} from '../lib/supabase';
 import EditorSheet from './EditorSheet';
 import {fmtCents,quoteTotals,toCents} from '../lib/quoteMath';
+import {validateQuoteDraft,quoteCanBecomeOrder} from '../lib/domain';
 import type {Party,Product} from './RecordEditor';
 
 type QuoteLine={id:string;product_id:string|null;product_name:string;quantity:number;unit_price_cents:number};
@@ -66,15 +67,9 @@ function QuoteEditor({customers,products,onClose,onSaved}:{customers:Party[];pro
   event.preventDefault();const client=supabase;if(!client)return;
   setError('');
   try{
-   if(!customerId)throw new Error('Selecione um cliente.');
-   if(lines.some(l=>!l.productId||!Number.isSafeInteger(Number(l.quantity))||Number(l.quantity)<1))throw new Error('Selecione um produto e uma quantidade válida em cada item.');
-   const ids=lines.map(l=>l.productId);
-   if(new Set(ids).size!==ids.length)throw new Error('Um produto não pode aparecer duas vezes no mesmo orçamento.');
-   const discountCents=toCents(discount);
-   if(selected.length!==lines.length)throw new Error('Revise os itens do orçamento.');
-   quoteTotals(selected,discountCents);
+   const draft=validateQuoteDraft(customerId,lines,discount,products,customers);
    setPending(true);
-   const {error}=await client.rpc('create_quote_with_items',{p_customer_id:customerId,p_items:lines.map(l=>({product_id:l.productId,quantity:Number(l.quantity)})),p_discount_cents:discountCents,p_notes:notes});
+   const {error}=await client.rpc('create_quote_with_items',{p_customer_id:draft.customerId,p_items:draft.items,p_discount_cents:draft.discountCents,p_notes:notes});
    if(error)throw error;
    await onSaved();
   }catch(e){setError(friendlyError(e));}
@@ -154,7 +149,7 @@ export default function CommercePages({mode,products,customers,onNotice}:Props){
      <div className="commerce-summary"><span>{q.quote_items.length} {q.quote_items.length===1?'item':'itens'}</span><strong>{fmtCents(total)}</strong></div>
      <div className="commerce-buttons"><button className="button-secondary" type="button" onClick={()=>void savePdf(q,customers.find(c=>c.id===q.customer_id)).catch(e=>setError(friendlyError(e)))}><Download size={16}/> PDF</button>
       {!hasOrder&&<select className="commerce-select" aria-label={'Alterar status '+q.quote_number} value={q.status} disabled={Boolean(busy)} onChange={e=>{const status=e.target.value;void execute(q.id,()=>supabase!.rpc('set_quote_status',{p_quote_id:q.id,p_status:status}),'Status atualizado.');}}><option>Rascunho</option><option>Enviado</option><option>Aprovado</option><option>Recusado</option></select>}
-      {q.status==='Aprovado'&&!hasOrder&&<button className="button-primary" type="button" disabled={Boolean(busy)} onClick={()=>void execute(q.id,()=>supabase!.rpc('create_order_from_quote',{p_quote_id:q.id}),'Pedido criado com sucesso.')}><ShoppingBag size={16}/> Gerar pedido</button>}
+      {quoteCanBecomeOrder(q.status,hasOrder)&&<button className="button-primary" type="button" disabled={Boolean(busy)} onClick={()=>void execute(q.id,()=>supabase!.rpc('create_order_from_quote',{p_quote_id:q.id}),'Pedido criado com sucesso.')}><ShoppingBag size={16}/> Gerar pedido</button>}
       {hasOrder&&<span className="commerce-converted"><CheckCircle2 size={16}/> Convertido em pedido</span>}
      </div>
     </div>;
