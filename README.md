@@ -1,57 +1,68 @@
-# Vetor Hub
+# Vetorcore · Vetor Hub
 
-Aplicação web responsiva (PWA) para a Vetor Embalagens. **Versão inicial demonstrativa e simplificada.**
+PWA de gestão comercial e estoque para a Vetor Embalagens. Código em React + TypeScript + Vite, hospedado na Vercel, com Supabase Auth e PostgreSQL.
 
-## Conteúdo publicado
-- React 18 + TypeScript + Vite
-- Layout desktop/mobile com identidade roxo e laranja
-- Painel geral e listagem de produtos
-- Cadastro simplificado de produtos, clientes, fornecedores e orçamentos
-- Entradas e saídas de estoque em modo local
-- Manifest PWA e notificação de nova versão
-- GitHub Actions para checagem de build
-- Esboço de esquema SQL em `supabase/migrations/0001_schema.sql`
+**Aplicação:** https://vetorcore.vercel.app
 
-**Atenção:** não há login verdadeiro, banco conectado, sincronização entre dispositivos nem validação transacional no servidor. Os dados são fictícios, armazenados apenas no `localStorage` deste navegador. Não use para operações comerciais reais.
+## Recursos implementados
 
-## Rodar
-Instale Node.js 22 e execute:
+- Login por e-mail/senha e recuperação de acesso (Supabase Auth).
+- Acesso restrito aos usuários explicitamente cadastrados em `public.app_members` (RLS).
+- Dashboard com quantidade de produtos ativos, estoque baixo e custo estimado do estoque.
+- Produtos: cadastro, edição, fornecedor associado, preços e estoque mínimo.
+- Clientes e fornecedores: cadastro, edição, contato e documento.
+- Arquivamento/restauração de produtos, clientes e fornecedores sem apagar históricos.
+- Estoque: entrada e saída transacionais via RPC, recusa de saldo negativo e histórico.
+- Orçamentos: seleção de cliente, itens, quantidades, desconto, observações, histórico, status e exportação em PDF com jsPDF.
+- Pedidos: converter orçamento aprovado em pedido uma única vez; acompanhar e concluir.
+- Experiência responsiva: drawers desktop e telas de cadastro em tela cheia no mobile.
+- PWA instalável, com aviso para atualização de nova versão, e deploy automático na Vercel após push na `main`.
+
+**Regra atual:** criar ou concluir um pedido **não debita o estoque automaticamente**. Registre a saída na área Estoque no momento da expedição. Não há pagamento, faturamento fiscal ou emissão de nota fiscal.
+
+## Rodar no computador
+
+Requer Node.js 22+.
 
 ```bash
 npm install
+cp .env.example .env.local
 npm run dev
 ```
 
-Para testar a compilação:
+Configure em `.env.local` a URL do projeto Supabase e sua chave **publishable** (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`). Nunca coloque uma `service_role` ou chave secreta no navegador.
+
+## Testes
 
 ```bash
+npm run test
 npm run build
-npm run preview
+npx playwright install chromium
+npm run test:e2e
 ```
 
-## Deploy automático
-Conecte o repositório no Cloudflare Pages. Configure comando de build `npm run build` e diretório de saída `dist`. Um novo push na branch `main` dispara o deploy após a configuração. O navegador recebe a nova versão da PWA de acordo com o ciclo de atualização do service worker.
+O GitHub Actions executa testes de cálculo, compilação TypeScript/Vite e testes de navegador com Playwright em tamanhos mobile/desktop. Os testes de navegador simulam Auth e a API, sem acessar os dados reais.
 
-O workflow `.github/workflows/ci.yml` executa a checagem de build, mas **não publica automaticamente o site** até a hospedagem ser configurada.
+As funções de estoque, orçamento, pedidos, autorizações e arquivamento também foram testadas contra o projeto Supabase com transações descartadas por `ROLLBACK`. Essas verificações **não substituem** um teste manual completo com a sessão real do usuário em produção.
 
-## Próximas etapas
-- Revisar e executar a compilação num ambiente com dependências instaladas
-- Conectar Supabase Auth e PostgreSQL com políticas RLS
-- Implementar movimentos de estoque em transações SQL e testes
-- Evoluir orçamentos para itens, descontos e PDF
-- Substituir cadastros simplificados por formulários validados
-- Publicar na hospedagem, ativar URL HTTPS e testar a PWA no Android e no iOS
+## Estrutura do banco
 
-O pacote demonstrativo mais completo desenvolvido anteriormente não foi incorporado integralmente a este commit.
+- `supabase/migrations/0001_schema.sql` — esquema inicial.
+- `supabase/schema_snapshot.sql` — reconciliação dos privilégios, policies RLS, RPCs e arquivamento, extraída do estado do projeto remoto.
 
+O projeto remoto já possui as alterações; o snapshot é uma referência de reprodução, não deve ser executado novamente sem revisão. Não copie usuários ou credenciais de produção para ambientes de teste.
 
-## Supabase (em andamento)
-O projeto remoto `vetorcore` existe na região `sa-east-1`. O frontend usa `@supabase/supabase-js` e autenticação por e-mail/senha.
+## Implantação
 
-Na Vercel estão definidas as variáveis públicas `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`. **Nunca use uma secret key ou service_role no frontend.**
+O projeto da Vercel é `vetorcore`, com framework Vite, build `npm run build`, saída `dist`, ligado à branch `main`. A chave publishable do Supabase é destinada ao frontend; segurança de dados depende de autenticação e políticas RLS no servidor.
 
-O banco tem tabelas e políticas RLS. Não existe usuário autorizado por padrão: crie o usuário no painel Supabase Auth e, depois, um administrador deverá cadastrá-lo na tabela `app_members` com seu UUID. O aplicativo não oferece autoinscrição nem registra contas por conta própria.
+**Atenção às condições de serviço:** o plano Vercel Hobby é destinado a uso pessoal/não comercial. Antes de operar a empresa nesse ambiente, verifique o enquadramento do projeto e migre para um plano autorizado ou outra hospedagem adequada.
 
-**Limitação importante:** a autenticação e o banco estão preparados, porém a interface de produtos, estoque, clientes, fornecedores e orçamentos continua usando `localStorage` após o login. Esses dados não são compartilhados entre dispositivos, não aparecem no banco e **não são adequados para produção**. A migração de cada operação para o Supabase, incluindo funções transacionais, ainda é etapa pendente.
+## Limitações e cuidados
 
-O plano gratuito de hospedagem pode ter restrições para uso comercial.
+- Sem processamento de pagamentos, NF-e, integração com transportadoras ou contabilização automática de expedição.
+- Controle de estoque e pedidos usam fluxos distintos, por decisão atual do produto.
+- Não há modo offline com sincronização de edição (a PWA pode fazer cache da interface).
+- Rotina de backup/restauração e testes de recuperação de desastre ainda precisam ser verificados para dados empresariais.
+- Proteção do Supabase contra senhas vazadas depende do plano Pro ou superior; defina requisitos fortes de senha no Auth.
+- Testes automatizados não garantem ausência de bugs: valide também os fluxos reais no celular e no computador antes de registrar estoque da empresa.

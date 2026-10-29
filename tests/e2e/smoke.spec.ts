@@ -86,10 +86,12 @@ test('arquivamento é confirmado na interface e pode ser restaurado',async({page
  await expect(page.getByText('Produto arquivável')).toBeVisible();
  await page.getByRole('button',{name:'Arquivar',exact:true}).click();
  await page.getByRole('alertdialog').getByRole('button',{name:'Confirmar arquivamento'}).click();
- await expect(page.getByText('Produto arquivável')).not.toBeVisible();
+ await expect(page.getByRole('alertdialog')).not.toBeVisible();
+ await expect(page.locator('.record-description strong').getByText('Produto arquivável')).toHaveCount(0);
  await page.getByRole('button',{name:'Arquivados'}).click();
  await expect(page.getByText('Produto arquivável')).toBeVisible();
  await page.getByRole('button',{name:'Restaurar',exact:true}).click();
  await page.getByRole('alertdialog').getByRole('button',{name:'Restaurar'}).click();
- await expect(page.getByText('Produto arquivável')).not.toBeVisible();
+ await expect(page.getByRole('alertdialog')).not.toBeVisible();
+ await expect(page.locator('.record-description strong').getByText('Produto arquivável')).toHaveCount(0);
 });

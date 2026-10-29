@@ -54,7 +54,7 @@ function ProductForm({item,suppliers,close,saved}:{item?:Product;suppliers:Party
       if(!Number.isSafeInteger(minimum)||minimum<0)throw new Error('Estoque mínimo deve ser um número inteiro não negativo.');
       const payload={name:n,sku:code,category:category.trim()||'Outros',supplier_id:supplierId||null,cost_cents:money(cost),price_cents:money(price),min_qty:minimum};
       setPending(true);
-      const result=item?await client.from('products').update(payload).eq('id',item.id):await client.from('products').insert(payload);
+      const result=item?await client.from('products').update(payload).eq('id',item.id).select('id').single():await client.from('products').insert(payload);
       if(result.error)throw result.error;
       await saved(item?'Produto atualizado com sucesso.':'Produto cadastrado com sucesso.');
     }catch(e){setError(e instanceof Error?e.message:'Não foi possível salvar o produto.');}
@@ -102,7 +102,7 @@ function PartyForm({table,item,close,saved}:{table:'customers'|'suppliers';item?
     const payload={name:n,doc:doc.trim(),phone:phone.trim(),email:email.trim(),...(isSupplier?{category:category.trim()}:{})};
     setPending(true);
     try{
-      const result=item?await client.from(table).update(payload).eq('id',item.id):await client.from(table).insert(payload);
+      const result=item?await client.from(table).update(payload).eq('id',item.id).select('id').single():await client.from(table).insert(payload);
       if(result.error)throw result.error;
       await saved((isSupplier?'Fornecedor':'Cliente')+(item?' atualizado':' cadastrado')+' com sucesso.');
     }catch(e){setError(e instanceof Error?e.message:'Não foi possível salvar o cadastro.');}

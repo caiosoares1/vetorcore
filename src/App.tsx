@@ -75,7 +75,7 @@ export default function App(){
  function navigate(next:Page){setPage(next);setSearch('');setShowArchived(false);window.scrollTo({top:0,behavior:'smooth'});}
  function create(){if(page==='products')setEditor({kind:'product'});if(page==='customers')setEditor({kind:'party',table:'customers'});if(page==='suppliers')setEditor({kind:'party',table:'suppliers'});}
  async function saved(message:string){await refresh(true);setEditor(null);setToast(message);}
- async function archiveRecord(){const target=archiveTarget,client=supabase;if(!target||!client)return;setArchiveBusy(true);setError('');try{const {error}=await client.from(target.table).update({archived_at:target.archived?null:new Date().toISOString()}).eq('id',target.id);if(error)throw error;await refresh(true);setArchiveTarget(null);setToast(target.archived?'Cadastro restaurado.':'Cadastro arquivado.');}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setArchiveBusy(false);}}
+ async function archiveRecord(){const target=archiveTarget,client=supabase;if(!target||!client)return;setArchiveBusy(true);setError('');try{const {error}=await client.from(target.table).update({archived_at:target.archived?null:new Date().toISOString()}).eq('id',target.id).select('id').single();if(error)throw error;await refresh(true);setArchiveTarget(null);setToast(target.archived?'Cadastro restaurado.':'Cadastro arquivado.');}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setArchiveBusy(false);}}
  const current=navItems.find(x=>x.key===page)!;
  const hasSearch=page==='products'||page==='customers'||page==='suppliers'||page==='moves';
  const canCreate=page==='products'||page==='customers'||page==='suppliers';
