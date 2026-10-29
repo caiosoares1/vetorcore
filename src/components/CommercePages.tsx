@@ -3,7 +3,7 @@ import {Check,CheckCircle2,Download,FileText,Plus,RefreshCw,ShoppingBag,Trash2,X
 import {supabase} from '../lib/supabase';
 import EditorSheet from './EditorSheet';
 import {fmtCents,quoteTotals,toCents} from '../lib/quoteMath';
-import {validateQuoteDraft,quoteCanBecomeOrder} from '../lib/domain';
+import {validateQuoteDraft,quoteCanBecomeOrder,errorMessage} from '../lib/domain';
 import type {Party,Product} from './RecordEditor';
 
 type QuoteLine={id:string;product_id:string|null;product_name:string;quantity:number;unit_price_cents:number};
@@ -14,7 +14,7 @@ type Props={mode:'quotes'|'orders';products:Product[];customers:Party[];onNotice
 const newLine=():DraftLine=>({id:crypto.randomUUID(),productId:'',quantity:'1'});
 const shortDate=(iso:string)=>new Date(iso).toLocaleDateString('pt-BR');
 const quoteNumber=(n:number)=>'#'+String(n).padStart(5,'0');
-const friendlyError=(e:unknown)=>e instanceof Error?e.message:String(e);
+const friendlyError=(e:unknown)=>errorMessage(e,'Não foi possível concluir a operação.');
 
 async function savePdf(q:Quote,customer?:Party){
  const {jsPDF}=await import('jspdf');

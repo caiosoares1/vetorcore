@@ -3,7 +3,7 @@ import {AlertCircle,ArrowDownCircle,ArrowUpCircle,ArrowDownUp,Box,CheckCircle2,C
 import {supabase} from './lib/supabase';
 import RecordEditor,{type Product,type Party,type Movement,type EditorTarget} from './components/RecordEditor';
 import CommercePages from './components/CommercePages';
-import {inventoryStats} from './lib/domain';
+import {inventoryStats,errorMessage} from './lib/domain';
 
 type Page='home'|'products'|'quotes'|'orders'|'suppliers'|'customers'|'moves';
 const navItems=[
@@ -57,7 +57,7 @@ export default function App(){
      setSuppliers((s.data||[]).map(x=>({id:x.id,name:x.name,doc:x.doc||'',phone:x.phone||'',email:x.email||'',category:x.category||'',archivedAt:x.archived_at})));
      setMovements((m.data||[]).map(x=>({id:x.id,productId:x.product_id,kind:x.kind,delta:x.delta,note:x.note||'',createdAt:x.created_at})));
      setSyncedAt(new Date());
-   }catch(e){setError(e instanceof Error?e.message:'Falha ao atualizar os dados.');}
+   }catch(e){setError(errorMessage(e,'Falha ao atualizar os dados.'));}
    finally{setLoading(false);setRefreshing(false);}
  }
  useEffect(()=>{void refresh();},[]);
@@ -75,7 +75,7 @@ export default function App(){
  function navigate(next:Page){setPage(next);setSearch('');setShowArchived(false);window.scrollTo({top:0,behavior:'smooth'});}
  function create(){if(page==='products')setEditor({kind:'product'});if(page==='customers')setEditor({kind:'party',table:'customers'});if(page==='suppliers')setEditor({kind:'party',table:'suppliers'});}
  async function saved(message:string){await refresh(true);setEditor(null);setToast(message);}
- async function archiveRecord(){const target=archiveTarget,client=supabase;if(!target||!client)return;setArchiveBusy(true);setError('');try{const {error}=await client.from(target.table).update({archived_at:target.archived?null:new Date().toISOString()}).eq('id',target.id).select('id').single();if(error)throw error;await refresh(true);setArchiveTarget(null);setToast(target.archived?'Cadastro restaurado.':'Cadastro arquivado.');}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setArchiveBusy(false);}}
+ async function archiveRecord(){const target=archiveTarget,client=supabase;if(!target||!client)return;setArchiveBusy(true);setError('');try{const {error}=await client.from(target.table).update({archived_at:target.archived?null:new Date().toISOString()}).eq('id',target.id).select('id').single();if(error)throw error;await refresh(true);setArchiveTarget(null);setToast(target.archived?'Cadastro restaurado.':'Cadastro arquivado.');}catch(e){setError(errorMessage(e,'Falha ao alterar cadastro.'));}finally{setArchiveBusy(false);}}
  const current=navItems.find(x=>x.key===page)!;
  const hasSearch=page==='products'||page==='customers'||page==='suppliers'||page==='moves';
  const canCreate=page==='products'||page==='customers'||page==='suppliers';

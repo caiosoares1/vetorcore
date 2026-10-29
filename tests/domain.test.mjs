@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
  normalizeName,validateSku,nonnegativeInteger,positiveInteger,productPayload,partyPayload,
- movementDelta,validateQuoteDraft,quoteCanBecomeOrder,inventoryStats
+ movementDelta,validateQuoteDraft,quoteCanBecomeOrder,inventoryStats,errorMessage
 } from '../src/lib/domain.ts';
 
 const products=[{id:'p1',price:12.5},{id:'p2',price:2.99},{id:'p3',price:88,archivedAt:'2026-01-01'}];
@@ -91,3 +91,9 @@ test('indicadores de estoque ignoram arquivados e reconhecem baixo saldo',()=>{
  assert.deepEqual(s,{activeProducts:2,lowStock:1,inventoryCost:74});
 });
 test('indicadores vazios começam em zero',()=>assert.deepEqual(inventoryStats([]),{activeProducts:0,lowStock:0,inventoryCost:0}));
+
+test('exibe erro de API sem perder a mensagem original',()=>{
+ assert.equal(errorMessage({message:'Falha simulada no servidor'},'Erro padrão'),'Falha simulada no servidor');
+ assert.equal(errorMessage(new Error('Erro de conexão'),'Erro padrão'),'Erro de conexão');
+ assert.equal(errorMessage(null,'Erro padrão'),'Erro padrão');
+});

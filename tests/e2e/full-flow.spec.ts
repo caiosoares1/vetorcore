@@ -121,7 +121,7 @@ test('falha do Supabase ao salvar não fecha o formulário nem altera dados',asy
 test('clientes e fornecedores são cadastrados e editados',async({page})=>{
  const mock=await ready(page);
  await openPage(page,'Clientes');
- await page.getByRole('button',{name:'Novo cliente'}).click();
+ await page.locator('.page-heading .add-button').click();
  let d=dialog(page);
  await d.getByLabel('Nome / razão social').fill('Mercado Bairro');
  await d.getByLabel('E-mail').fill('mercado@example.com');

@@ -2,7 +2,7 @@ import {useState,type FormEvent} from 'react';
 import {ArrowDownCircle,ArrowUpCircle,CheckCircle2,Package,Save,UserRound,Truck} from 'lucide-react';
 import EditorSheet from './EditorSheet';
 import {supabase} from '../lib/supabase';
-import {productPayload,partyPayload,movementDelta} from '../lib/domain';
+import {productPayload,partyPayload,movementDelta,errorMessage} from '../lib/domain';
 
 export type Product={
   id:string; name:string; sku:string; category:string; cost:number;
@@ -48,7 +48,7 @@ function ProductForm({item,suppliers,close,saved}:{item?:Product;suppliers:Party
       const result=item?await client.from('products').update(payload).eq('id',item.id).select('id').single():await client.from('products').insert(payload);
       if(result.error)throw result.error;
       await saved(item?'Produto atualizado com sucesso.':'Produto cadastrado com sucesso.');
-    }catch(e){setError(e instanceof Error?e.message:'Não foi possível salvar o produto.');}
+    }catch(e){setError(errorMessage(e,'Não foi possível salvar o produto.'));}
     finally{setPending(false);}
   }
   return <EditorSheet title={item?'Editar produto':'Novo produto'} description="Informações de catálogo, preços e controle de estoque." onClose={close} busy={pending}>
@@ -94,7 +94,7 @@ function PartyForm({table,item,close,saved}:{table:'customers'|'suppliers';item?
       const result=item?await client.from(table).update(payload).eq('id',item.id).select('id').single():await client.from(table).insert(payload);
       if(result.error)throw result.error;
       await saved((isSupplier?'Fornecedor':'Cliente')+(item?' atualizado':' cadastrado')+' com sucesso.');
-    }catch(e){setError(e instanceof Error?e.message:'Não foi possível salvar o cadastro.');}
+    }catch(e){setError(errorMessage(e,'Não foi possível salvar o cadastro.'));}
     finally{setPending(false);}
   }
   return <EditorSheet title={(item?'Editar ':'Novo ')+label} description="Preencha os dados de contato e identificação." onClose={close} busy={pending}>
@@ -131,7 +131,7 @@ function MovementForm({product,direction,close,saved}:{product:Product;direction
       const {error}=await client.rpc('record_stock_movement',{p_product_id:product.id,p_delta:delta,p_note:note.trim()});
       if(error)throw error;
       await saved((isEntry?'Entrada':'Saída')+' registrada com sucesso.');
-    }catch(e){setError(e instanceof Error?e.message:'Não foi possível registrar a movimentação.');}
+    }catch(e){setError(errorMessage(e,'Não foi possível registrar a movimentação.'));}
     finally{setPending(false);}
   }
   return <EditorSheet title={(isEntry?'Nova entrada':'Nova saída')} description="Movimente o estoque com registro no histórico." onClose={close} busy={pending}>
