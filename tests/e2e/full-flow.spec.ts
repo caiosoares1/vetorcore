@@ -235,3 +235,103 @@ test('erro na API de orçamentos é apresentado sem lista falsa de registros',as
  await openPage(page,'Orçamentos');
  await expect(page.getByRole('alert')).toContainText('Falha simulada no servidor');
 });
+
+test('produto guarda modelo e medidas da sacola e exibe margem',async({page})=>{
+ const mock=await ready(page);
+ await openPage(page,'Produtos');
+ await page.getByRole('button',{name:'Novo produto'}).click();
+ const d=dialog(page);
+ await d.getByLabel('Nome do produto').fill('Sacola 30x40 boca de palhaço');
+ await d.getByLabel('Código / SKU').fill('SAC-3040');
+ await d.getByLabel('Modelo').fill('Boca de palhaço');
+ await d.getByLabel('Largura (cm)').fill('30');
+ await d.getByLabel('Altura (cm)').fill('40');
+ await d.getByLabel('Espessura (mm)').fill('0,010');
+ await d.getByLabel('Custo unitário (R$)').fill('0,48');
+ await d.getByLabel('Preço de venda (R$)').fill('0,99');
+ await d.getByRole('button',{name:'Cadastrar produto'}).click();
+ await expect(d).not.toBeVisible();
+ expect(mock.store.products[0]).toMatchObject({model:'Boca de palhaço',width_cm:30,height_cm:40,gusset_cm:null,thickness_mm:0.01});
+ await expect(row(page)).toContainText('30 × 40 cm · 0,010 mm · Boca de palhaço');
+ await expect(row(page)).toContainText('margem 51,5%');
+});
+
+test('medida de sacola inválida não envia cadastro',async({page})=>{
+ const mock=await ready(page);
+ await openPage(page,'Produtos');
+ await page.getByRole('button',{name:'Novo produto'}).click();
+ const d=dialog(page);
+ await d.getByLabel('Nome do produto').fill('Sacola inválida');
+ await d.getByLabel('Código / SKU').fill('SAC-X');
+ await d.getByLabel('Largura (cm)').fill('0');
+ await d.getByRole('button',{name:'Cadastrar produto'}).click();
+ await expect(d.getByRole('alert')).toContainText('Largura');
+ expect(mock.store.products).toHaveLength(0);
+});
+
+test('fornecedor com endereço e preço por kg; entrada registra custo e fornecedor',async({page})=>{
+ const mock=await ready(page,{initialProducts:[seededProduct()],initialSuppliers:[seededSupplier()]});
+ await openPage(page,'Fornecedores');
+ await page.locator('.party-record').getByRole('button',{name:'Editar'}).click();
+ let d=dialog(page);
+ await d.getByLabel('Preço por kg (R$)').fill('43,00');
+ await d.getByLabel('Endereço').fill('Rua das Indústrias, 100');
+ await d.getByRole('button',{name:'Salvar alterações'}).click();
+ await expect(d).not.toBeVisible();
+ expect(mock.store.suppliers[0]).toMatchObject({price_per_kg_cents:4300,address:'Rua das Indústrias, 100'});
+ await expect(page.locator('.party-record')).toContainText('Rua das Indústrias, 100');
+ await openPage(page,'Estoque');
+ await page.getByRole('button',{name:'Entrada',exact:true}).click();
+ d=dialog(page);
+ await d.getByLabel('Quantidade para entrada').fill('500');
+ await d.getByLabel('Custo unitário (R$)').fill('0,19');
+ await d.getByLabel('Fornecedor').selectOption(String(mock.store.suppliers[0].id));
+ await d.getByRole('button',{name:'Confirmar entrada'}).click();
+ await expect(d).not.toBeVisible();
+ expect(mock.store.stock_movements[0]).toMatchObject({delta:500,unit_cost_cents:19,supplier_id:mock.store.suppliers[0].id});
+ await expect(page.locator('.history-record')).toContainText('Fornecedor Sul');
+ await expect(page.locator('.history-record')).toContainText('R$ 0,19/un.');
+ await page.getByRole('button',{name:'Saída',exact:true}).click();
+ d=dialog(page);
+ await expect(d.getByLabel('Custo unitário (R$)')).toHaveCount(0);
+});
+
+test('orçamento com frete, entrega e pagamento gera pedido com frete no total',async({page})=>{
+ const mock=await ready(page,{initialProducts:[seededProduct()],initialCustomers:[{...seededCustomer(),address:'Rua A, 10'}]});
+ await openPage(page,'Orçamentos');
+ await page.getByRole('button',{name:'Novo orçamento'}).click();
+ const d=dialog(page);
+ await d.getByLabel('Cliente *').selectOption('b0000000-0000-4000-8000-000000000001');
+ await d.getByLabel('Produto *').selectOption('a0000000-0000-4000-8000-000000000001');
+ await d.getByLabel('Quantidade *').fill('3');
+ await d.getByLabel('Frete (R$)').fill('15,00');
+ await d.getByLabel('Data de entrega').fill('2099-12-20');
+ await d.getByLabel('Forma de pagamento').fill('50% de entrada');
+ await expect(d.getByText('R$ 51,00')).toBeVisible();
+ await d.getByRole('button',{name:'Criar orçamento'}).click();
+ await expect(d).not.toBeVisible();
+ expect(mock.store.quotes[0]).toMatchObject({freight_cents:1500,delivery_date:'2099-12-20',payment_terms:'50% de entrada'});
+ await expect(page.locator('.commerce-record')).toContainText('entrega 20/12/2099');
+ await expect(page.locator('.commerce-record')).toContainText('R$ 51,00');
+ const downloadEvent=page.waitForEvent('download');
+ await page.getByRole('button',{name:'PDF'}).click();
+ const pdf=await readFile(await (await downloadEvent).path());
+ expect(pdf.subarray(0,5).toString('ascii')).toBe('%PDF-');
+ await page.getByRole('combobox',{name:'Alterar status 1'}).selectOption('Aprovado');
+ await page.getByRole('button',{name:'Gerar pedido'}).click();
+ await expect(page.getByText('Convertido em pedido')).toBeVisible();
+ expect(mock.store.orders[0].total_cents).toBe(5100);
+});
+
+test('data de entrega no passado é recusada antes de enviar',async({page})=>{
+ const mock=await ready(page,{initialProducts:[seededProduct()],initialCustomers:[seededCustomer()]});
+ await openPage(page,'Orçamentos');
+ await page.getByRole('button',{name:'Novo orçamento'}).click();
+ const d=dialog(page);
+ await d.getByLabel('Cliente *').selectOption('b0000000-0000-4000-8000-000000000001');
+ await d.getByLabel('Produto *').selectOption('a0000000-0000-4000-8000-000000000001');
+ await d.getByLabel('Data de entrega').fill('2020-01-01');
+ await d.getByRole('button',{name:'Criar orçamento'}).click();
+ await expect(d.getByRole('alert')).toContainText('passado');
+ expect(mock.store.quotes).toHaveLength(0);
+});

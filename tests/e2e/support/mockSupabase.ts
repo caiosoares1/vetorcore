@@ -76,9 +76,11 @@ export async function mockBackend(page:Page,options:Options={}){
     const after=Number(p.qty)+Number(data.p_delta);
     if(after<0)return route.fulfill(failure('Saldo insuficiente'));
     if(!Number.isInteger(after))return route.fulfill(failure('Quantidade inválida'));
-    p.qty=after;
     const id=nextId();
-    store.stock_movements.unshift({id,product_id:p.id,delta:data.p_delta,kind:Number(data.p_delta)>0?'Entrada':'Saída',note:data.p_note,created_at:new Date().toISOString()});
+    if(Number(data.p_delta)<0&&(data.p_unit_cost_cents!=null||data.p_supplier_id!=null))return route.fulfill(failure('Custo e fornecedor só se aplicam a entradas'));
+    if(data.p_supplier_id!=null&&!store.suppliers.some(s=>s.id===data.p_supplier_id&&!s.archived_at))return route.fulfill(failure('Fornecedor não encontrado'));
+    p.qty=after;
+    store.stock_movements.unshift({id,product_id:p.id,delta:data.p_delta,kind:Number(data.p_delta)>0?'Entrada':'Saída',note:data.p_note,created_at:new Date().toISOString(),unit_cost_cents:data.p_unit_cost_cents??null,supplier_id:data.p_supplier_id??null});
     return reply(id);
    }
    if(action==='create_quote_with_items'){
@@ -91,7 +93,7 @@ export async function mockBackend(page:Page,options:Options={}){
      return {id:nextId(),product_id:product.id,product_name:product.name,quantity:x.quantity,unit_price_cents:product.price_cents};
     });
     const id=nextId();
-    store.quotes.push({id,quote_number:store.quotes.length+1,customer_id:customer.id,status:'Rascunho',discount_cents:data.p_discount_cents,notes:data.p_notes,created_at:new Date().toISOString(),quote_items:quoteItems});
+    store.quotes.push({id,quote_number:store.quotes.length+1,customer_id:customer.id,status:'Rascunho',discount_cents:data.p_discount_cents,notes:data.p_notes,created_at:new Date().toISOString(),delivery_date:data.p_delivery_date??null,freight_cents:data.p_freight_cents??0,payment_terms:data.p_payment_terms??'',quote_items:quoteItems});
     return reply(id);
    }
    if(action==='set_quote_status'){
@@ -107,7 +109,7 @@ export async function mockBackend(page:Page,options:Options={}){
     if(store.orders.some(x=>x.quote_id===quote.id))return route.fulfill(failure('Pedido duplicado'));
     const subtotal=(quote.quote_items as Row[]).reduce((sum,item)=>sum+Number(item.unit_price_cents)*Number(item.quantity),0);
     const id=nextId();
-    store.orders.push({id,order_number:store.orders.length+1,quote_id:quote.id,customer_id:quote.customer_id,total_cents:subtotal-Number(quote.discount_cents),status:'Em separação',created_at:new Date().toISOString()});
+    store.orders.push({id,order_number:store.orders.length+1,quote_id:quote.id,customer_id:quote.customer_id,total_cents:subtotal-Number(quote.discount_cents)+Number(quote.freight_cents||0),status:'Em separação',created_at:new Date().toISOString()});
     return reply(id);
    }
    if(action==='set_order_status'){

@@ -3,7 +3,7 @@ import {AlertCircle,ArrowDownCircle,ArrowUpCircle,ArrowDownUp,Box,CheckCircle2,C
 import {supabase} from './lib/supabase';
 import RecordEditor,{type Product,type Party,type Movement,type EditorTarget} from './components/RecordEditor';
 import CommercePages from './components/CommercePages';
-import {inventoryStats,errorMessage} from './lib/domain';
+import {inventoryStats,errorMessage,bagSpecLabel,productMargin} from './lib/domain';
 
 type Page='home'|'products'|'quotes'|'orders'|'suppliers'|'customers'|'moves';
 const navItems=[
@@ -45,17 +45,18 @@ export default function App(){
    setError('');
    try{
      const [p,c,s,m]=await Promise.all([
-       client.from('products').select('id,name,sku,category,cost_cents,price_cents,qty,min_qty,supplier_id,archived_at').order('name'),
-       client.from('customers').select('id,name,doc,phone,email,archived_at').order('name'),
-       client.from('suppliers').select('id,name,doc,phone,email,category,archived_at').order('name'),
-       client.from('stock_movements').select('id,product_id,kind,delta,note,created_at').order('created_at',{ascending:false}).limit(100)
+       client.from('products').select('id,name,sku,category,cost_cents,price_cents,qty,min_qty,supplier_id,archived_at,model,width_cm,height_cm,gusset_cm,thickness_mm').order('name'),
+       client.from('customers').select('id,name,doc,phone,email,address,archived_at').order('name'),
+       client.from('suppliers').select('id,name,doc,phone,email,address,category,price_per_kg_cents,archived_at').order('name'),
+       client.from('stock_movements').select('id,product_id,kind,delta,note,created_at,unit_cost_cents,supplier_id').order('created_at',{ascending:false}).limit(100)
      ]);
      const failure=[p.error,c.error,s.error,m.error].find(Boolean);
      if(failure)throw failure;
-     setProducts((p.data||[]).map(x=>({id:x.id,name:x.name,sku:x.sku,category:x.category,cost:x.cost_cents/100,price:x.price_cents/100,qty:x.qty,min:x.min_qty,supplierId:x.supplier_id,archivedAt:x.archived_at})));
-     setCustomers((c.data||[]).map(x=>({id:x.id,name:x.name,doc:x.doc||'',phone:x.phone||'',email:x.email||'',archivedAt:x.archived_at})));
-     setSuppliers((s.data||[]).map(x=>({id:x.id,name:x.name,doc:x.doc||'',phone:x.phone||'',email:x.email||'',category:x.category||'',archivedAt:x.archived_at})));
-     setMovements((m.data||[]).map(x=>({id:x.id,productId:x.product_id,kind:x.kind,delta:x.delta,note:x.note||'',createdAt:x.created_at})));
+     const num=(v:unknown)=>v==null||v===''?null:Number(v);
+     setProducts((p.data||[]).map(x=>({id:x.id,name:x.name,sku:x.sku,category:x.category,cost:x.cost_cents/100,price:x.price_cents/100,qty:x.qty,min:x.min_qty,supplierId:x.supplier_id,archivedAt:x.archived_at,model:x.model||'',width:num(x.width_cm),height:num(x.height_cm),gusset:num(x.gusset_cm),thickness:num(x.thickness_mm)})));
+     setCustomers((c.data||[]).map(x=>({id:x.id,name:x.name,doc:x.doc||'',phone:x.phone||'',email:x.email||'',address:x.address||'',archivedAt:x.archived_at})));
+     setSuppliers((s.data||[]).map(x=>({id:x.id,name:x.name,doc:x.doc||'',phone:x.phone||'',email:x.email||'',address:x.address||'',category:x.category||'',pricePerKg:x.price_per_kg_cents==null?null:x.price_per_kg_cents/100,archivedAt:x.archived_at})));
+     setMovements((m.data||[]).map(x=>({id:x.id,productId:x.product_id,kind:x.kind,delta:x.delta,note:x.note||'',createdAt:x.created_at,unitCost:x.unit_cost_cents==null?null:x.unit_cost_cents/100,supplierId:x.supplier_id})));
      setSyncedAt(new Date());
    }catch(e){setError(errorMessage(e,'Falha ao atualizar os dados.'));}
    finally{setLoading(false);setRefreshing(false);}
@@ -67,8 +68,8 @@ export default function App(){
  const filtered=useMemo(()=>{
    const q=search.toLocaleLowerCase('pt-BR').trim();
    return {
-     products:products.filter(p=>(Boolean(p.archivedAt)===showArchived)&&(p.name+' '+p.sku+' '+p.category).toLocaleLowerCase('pt-BR').includes(q)),
-     customers:customers.filter(p=>(Boolean(p.archivedAt)===showArchived)&&(p.name+' '+p.doc+' '+p.phone).toLocaleLowerCase('pt-BR').includes(q)),
+     products:products.filter(p=>(Boolean(p.archivedAt)===showArchived)&&(p.name+' '+p.sku+' '+p.category+' '+(p.model||'')).toLocaleLowerCase('pt-BR').includes(q)),
+     customers:customers.filter(p=>(Boolean(p.archivedAt)===showArchived)&&(p.name+' '+p.doc+' '+p.phone+' '+(p.address||'')).toLocaleLowerCase('pt-BR').includes(q)),
      suppliers:suppliers.filter(p=>(Boolean(p.archivedAt)===showArchived)&&(p.name+' '+p.doc+' '+p.category).toLocaleLowerCase('pt-BR').includes(q))
    };
  },[products,customers,suppliers,search,showArchived]);
@@ -82,6 +83,8 @@ export default function App(){
  const move=(product:Product,direction:'Entrada'|'Saída')=>setEditor({kind:'movement',product,direction});
  const editorKey=editor?.kind==='product'?'product-'+(editor.item?.id||'new'):editor?.kind==='party'?editor.table+'-'+(editor.item?.id||'new'):editor?.kind==='movement'?'move-'+editor.product.id+'-'+editor.direction:'';
  const productById=new Map(products.map(p=>[p.id,p]));
+ const supplierById=new Map(suppliers.map(s=>[s.id,s]));
+ const marginLabel=(p:Product)=>{const pct=productMargin(Math.round(p.cost*100),Math.round(p.price*100)).marginPct;return pct===null?'':' · margem '+pct.toLocaleString('pt-BR')+'%';};
  const sidebar=navItems.map(({key,label,Icon})=><button key={key} className={page===key?'active':''} aria-current={page===key?'page':undefined} onClick={()=>navigate(key)}><Icon size={19}/><span>{label}</span></button>);
 
  return <div className="shell">
@@ -120,7 +123,7 @@ export default function App(){
            {filtered.products.length===0?<EmptyState title={loading?'Carregando produtos…':products.length?'Nenhum resultado encontrado':'Seu catálogo começa aqui'} description={products.length?'Tente outro termo de busca.':'Cadastre um produto para começar a controlar entradas e saídas.'} onAction={page==='products'&&!products.length?()=>setEditor({kind:'product'}):undefined} actionLabel="Cadastrar produto"/>:
              <div className="records">{filtered.products.map(p=><div className="record record-product" key={p.id}>
                <div className="record-icon"><Package size={19}/></div>
-               <div className="record-description"><strong>{p.name}</strong><small>{p.sku} <span className="record-divider">·</span> {p.category}</small><span className="record-subvalue">{currency(p.price)} / un.</span></div>
+               <div className="record-description"><strong>{p.name}</strong><small>{p.sku} <span className="record-divider">·</span> {p.category}{bagSpecLabel(p)&&<> <span className="record-divider">·</span> {bagSpecLabel(p)}</>}</small><span className="record-subvalue">{currency(p.price)} / un.{page==='products'&&marginLabel(p)}</span></div>
                <div className="record-stock"><b>{p.qty} <small>un.</small></b>{p.qty<=p.min&&<span className="stock-alert">Estoque baixo</span>}</div>
                <div className="record-actions">
                  {page==='products'&&!p.archivedAt&&<button type="button" className="action-edit" onClick={()=>setEditor({kind:'product',item:p})}><PenLine size={15}/> Editar</button>}{page==='products'&&<button type="button" className="action-edit" onClick={()=>setArchiveTarget({table:'products',id:p.id,name:p.name,archived:Boolean(p.archivedAt)})}>{p.archivedAt?'Restaurar':'Arquivar'}</button>}
@@ -130,14 +133,14 @@ export default function App(){
              </div>)}</div>}
          </section>}
          {page==='moves'&&<section className="panel data-panel movement-history"><div className="data-heading"><span>Movimentações recentes</span><small>Últimas 100</small></div>
-           {!movements.length?<EmptyState title="Sem movimentações ainda" description="As entradas e saídas realizadas no app aparecerão aqui."/>:<div className="records">{movements.map(m=><div className="record history-record" key={m.id}><div className={'history-icon '+(m.delta>0?'in':'out')}>{m.delta>0?<ArrowDownCircle size={20}/>:<ArrowUpCircle size={20}/>}</div><div className="record-description"><strong>{productById.get(m.productId)?.name||'Produto não encontrado'}</strong><small>{new Date(m.createdAt).toLocaleString('pt-BR')}{m.note?' · '+m.note:''}</small></div><b className={m.delta>0?'delta-in':'delta-out'}>{m.delta>0?'+':''}{m.delta} un.</b></div>)}</div>}
+           {!movements.length?<EmptyState title="Sem movimentações ainda" description="As entradas e saídas realizadas no app aparecerão aqui."/>:<div className="records">{movements.map(m=><div className="record history-record" key={m.id}><div className={'history-icon '+(m.delta>0?'in':'out')}>{m.delta>0?<ArrowDownCircle size={20}/>:<ArrowUpCircle size={20}/>}</div><div className="record-description"><strong>{productById.get(m.productId)?.name||'Produto não encontrado'}</strong><small>{new Date(m.createdAt).toLocaleString('pt-BR')}{m.supplierId&&supplierById.has(m.supplierId)?' · '+supplierById.get(m.supplierId)!.name:''}{m.unitCost!=null?' · '+currency(m.unitCost)+'/un.':''}{m.note?' · '+m.note:''}</small></div><b className={m.delta>0?'delta-in':'delta-out'}>{m.delta>0?'+':''}{m.delta} un.</b></div>)}</div>}
          </section>}
          {(page==='customers'||page==='suppliers')&&<section className="panel data-panel">
            <div className="data-heading"><span>{page==='customers'?'Clientes cadastrados':'Fornecedores cadastrados'}</span><small>{filtered[page].length} {filtered[page].length===1?'registro':'registros'}</small></div>
            {filtered[page].length===0?<EmptyState title={loading?'Carregando…':(page==='customers'?customers:suppliers).length?'Nenhum resultado encontrado':'Nenhum cadastro ainda'} description={(page==='customers'?customers:suppliers).length?'Tente outra busca.':'Comece adicionando seu primeiro cadastro.'} onAction={!(page==='customers'?customers:suppliers).length?create:undefined} actionLabel={page==='customers'?'Novo cliente':'Novo fornecedor'}/>:
            <div className="records">{filtered[page].map(p=><div className="record party-record" key={p.id}>
              <div className="record-icon">{page==='customers'?<Users size={19}/>:<Truck size={19}/>}</div>
-             <div className="record-description"><strong>{p.name}</strong><small>{p.phone||p.email||'Sem contato informado'}</small>{p.doc&&<span className="record-subvalue">{p.doc}</span>}</div>
+             <div className="record-description"><strong>{p.name}</strong><small>{p.phone||p.email||'Sem contato informado'}{p.address?' · '+p.address:''}</small>{p.doc&&<span className="record-subvalue">{p.doc}</span>}</div>
              <div className="record-actions">{!p.archivedAt&&<button type="button" className="action-edit" onClick={()=>setEditor({kind:'party',table:page,item:p})}><PenLine size={15}/> Editar</button>}<button type="button" className="action-edit" onClick={()=>setArchiveTarget({table:page,id:p.id,name:p.name,archived:Boolean(p.archivedAt)})}>{p.archivedAt?'Restaurar':'Arquivar'}</button></div>
            </div>)}</div>}
          </section>}

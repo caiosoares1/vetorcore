@@ -47,6 +47,10 @@ Os nomes de RPC e o esquema exato são verificáveis em `supabase/schema_snapsho
 - Resultados Playwright são **simulados**; testes transacionais reais do SQL foram executados manualmente, mas não são um job do CI (detalhes em `TESTING.md`).
 - `dist/` e `node_modules/` são gerados. Não incluir credenciais no frontend. Consulte `AGENTS.md` antes de alteração em banco.
 
+## Estrutura derivada das planilhas (migration 0002)
+
+`supabase/migrations/0002_planilhas_estrutura.sql` adiciona os campos que a operação controlava nas planilhas "Sis Tema" e "Tabela de sacolas plásticas 2026": endereço e data de cadastro em clientes/fornecedores, preço por kg do fornecedor, modelo e medidas da sacola no produto, custo e fornecedor por entrada (parâmetros opcionais de `record_stock_movement`) e frete, data de entrega e forma de pagamento no orçamento (parâmetros opcionais de `create_quote_with_items`). O total do pedido passa a ser `subtotal − desconto + frete`. O frontend seleciona essas colunas, então **a migration precisa estar aplicada antes do deploy do frontend**. A calculadora de preço por kg/cores/tiragem da tabela de sacolas ainda não foi implementada.
+
 ## Limitações e pontos em aberto
 
 Não há lint, formatter, lockfile ou script combinado de checagens versionados. Não há pasta de services/repositories separada; a UI chama o cliente Supabase diretamente. `src/data.ts` contém um modelo/dados de demonstração local anterior; seu papel atual não foi formalmente esclarecido. O snapshot do banco representa alterações posteriores à migration inicial, mas não constitui sequência incremental completa para reprovisionar ambientes. Backup/restauração, dispositivos físicos e integrações reais ainda carecem de validação documentada.

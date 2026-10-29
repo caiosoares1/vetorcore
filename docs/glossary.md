@@ -20,6 +20,11 @@
 | Estado do orçamento | `Rascunho`, `Enviado`, `Aprovado` ou `Recusado` | `CommercePages.tsx`, RPC `set_quote_status` |
 | Pedido | Registro gerado de orçamento aprovado; conversão única por orçamento | `orders`, RPC `create_order_from_quote` |
 | Estado do pedido | `Em separação` ou `Concluído`; não implica baixa automática de estoque | `orders`, RPC `set_order_status` |
+| Modelo / medidas da sacola | Atributos opcionais do produto: `model` (ex.: boca de palhaço, alça camiseta), `width_cm`, `height_cm`, `gusset_cm` (sanfona) e `thickness_mm` (espessura) | `products`, migration `0002` |
+| Margem | `(preço − custo) / preço`, calculada na interface a partir do cadastro; não é persistida | `productMargin` em `domain.ts` |
+| Preço por kg | Valor do quilo cobrado pelo fornecedor de sacolas plásticas, em centavos | `suppliers.price_per_kg_cents` |
+| Custo da entrada | Custo unitário e fornecedor opcionais registrados em uma Entrada; não alteram `products.cost_cents` | `stock_movements.unit_cost_cents`, `supplier_id` |
+| Frete / entrega / pagamento | Campos do orçamento; o frete soma ao total e entra no `total_cents` do pedido | `quotes.freight_cents`, `delivery_date`, `payment_terms` |
 | Arquivamento | Ocultação reversível via `archived_at` em vez de exclusão definitiva | `products`, `customers`, `suppliers` |
 | Usuário autorizado | Conta autenticada com UUID incluído em `public.app_members` | `AuthGate.tsx`, RLS |
 | RLS | Row Level Security do PostgreSQL; restringe acesso aos dados por usuário/política | `supabase/schema_snapshot.sql` |

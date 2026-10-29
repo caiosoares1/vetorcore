@@ -7,12 +7,14 @@ import {validateQuoteDraft,quoteCanBecomeOrder,errorMessage} from '../lib/domain
 import type {Party,Product} from './RecordEditor';
 
 type QuoteLine={id:string;product_id:string|null;product_name:string;quantity:number;unit_price_cents:number};
-type Quote={id:string;quote_number:number;customer_id:string;status:string;discount_cents:number;notes:string;created_at:string;quote_items:QuoteLine[]};
+type Quote={id:string;quote_number:number;customer_id:string;status:string;discount_cents:number;notes:string;created_at:string;delivery_date:string|null;freight_cents:number|null;payment_terms:string|null;quote_items:QuoteLine[]};
 type Order={id:string;order_number:number;quote_id:string;customer_id:string;total_cents:number;status:string;created_at:string};
 type DraftLine={id:string;productId:string;quantity:string};
 type Props={mode:'quotes'|'orders';products:Product[];customers:Party[];onNotice:(msg:string)=>void};
 const newLine=():DraftLine=>({id:crypto.randomUUID(),productId:'',quantity:'1'});
 const shortDate=(iso:string)=>new Date(iso).toLocaleDateString('pt-BR');
+const plainDate=(day:string)=>day.split('-').reverse().join('/');
+const quoteTotal=(q:Quote)=>q.quote_items.reduce((sum,l)=>sum+l.unit_price_cents*l.quantity,0)-q.discount_cents+(q.freight_cents||0);
 const quoteNumber=(n:number)=>'#'+String(n).padStart(5,'0');
 const friendlyError=(e:unknown)=>errorMessage(e,'Não foi possível concluir a operação.');
 
@@ -23,8 +25,11 @@ async function savePdf(q:Quote,customer?:Party){
  pdf.setFont('helvetica','bold');pdf.setFontSize(20);pdf.setTextColor(55,59,149);pdf.text('VETOR EMBALAGENS',18,y);
  y+=9;pdf.setFont('helvetica','normal');pdf.setFontSize(11);pdf.setTextColor(51,61,80);pdf.text('Orcamento '+quoteNumber(q.quote_number),18,y);
  y+=9;pdf.text('Emissao: '+shortDate(q.created_at),18,y);
+ if(q.delivery_date){y+=7;pdf.text('Entrega prevista: '+plainDate(q.delivery_date),18,y);}
  y+=8;pdf.text('Cliente: '+(customer?.name||'Cliente'),18,y);
  if(customer?.doc){y+=7;pdf.text('Documento: '+customer.doc,18,y);}
+ if(customer?.phone){y+=7;pdf.text('Telefone: '+customer.phone,18,y);}
+ if(customer?.address){const lines=pdf.splitTextToSize('Endereco: '+customer.address,174);y+=7;pdf.text(lines,18,y);y+=(lines.length-1)*5.5;}
  y+=14;pdf.setFont('helvetica','bold');pdf.text('Produto',18,y);pdf.text('Qtd.',117,y);pdf.text('Subtotal',153,y);y+=3;
  pdf.setDrawColor(222,226,233);pdf.line(18,y,192,y);y+=7;
  pdf.setFont('helvetica','normal');
@@ -39,9 +44,12 @@ async function savePdf(q:Quote,customer?:Party){
  pdf.line(18,y,192,y);y+=9;
  const subtotal=q.quote_items.reduce((sum,item)=>sum+item.quantity*item.unit_price_cents,0);
  pdf.text('Subtotal: '+fmtCents(subtotal),18,y);y+=7;
- pdf.text('Desconto: '+fmtCents(q.discount_cents),18,y);y+=8;
- pdf.setFont('helvetica','bold');pdf.setFontSize(14);pdf.text('Total: '+fmtCents(subtotal-q.discount_cents),18,y);y+=13;
- if(q.notes){pdf.setFont('helvetica','normal');pdf.setFontSize(10);pdf.text(pdf.splitTextToSize('Observacoes: '+q.notes,168),18,y);}
+ pdf.text('Desconto: '+fmtCents(q.discount_cents),18,y);y+=7;
+ if(q.freight_cents){pdf.text('Frete: '+fmtCents(q.freight_cents),18,y);y+=7;}
+ y+=1;pdf.setFont('helvetica','bold');pdf.setFontSize(14);pdf.text('Total: '+fmtCents(subtotal-q.discount_cents+(q.freight_cents||0)),18,y);y+=13;
+ pdf.setFont('helvetica','normal');pdf.setFontSize(10);
+ if(q.payment_terms){const lines=pdf.splitTextToSize('Forma de pagamento: '+q.payment_terms,168);pdf.text(lines,18,y);y+=lines.length*5+4;}
+ if(q.notes){pdf.text(pdf.splitTextToSize('Observacoes: '+q.notes,168),18,y);}
  pdf.save('vetorcore-orcamento-'+q.quote_number+'.pdf');
 }
 
@@ -50,6 +58,9 @@ function QuoteEditor({customers,products,onClose,onSaved}:{customers:Party[];pro
  const[lines,setLines]=useState<DraftLine[]>([newLine()]);
  const[discount,setDiscount]=useState('0');
  const[notes,setNotes]=useState('');
+ const[freight,setFreight]=useState('');
+ const[deliveryDate,setDeliveryDate]=useState('');
+ const[paymentTerms,setPaymentTerms]=useState('');
  const[pending,setPending]=useState(false);
  const[error,setError]=useState('');
  const[selected,setSelected]=useState<{quantity:number;unitPriceCents:number}[]>([]);
@@ -61,15 +72,15 @@ function QuoteEditor({customers,products,onClose,onSaved}:{customers:Party[];pro
   }));
  },[lines,products]);
  let total=0;let subtotal=0;
- try{const r=quoteTotals(selected,toCents(discount));subtotal=r.subtotal;total=r.total;}catch{ /* Display inline validation on submit. */ }
+ try{const r=quoteTotals(selected,toCents(discount),freight.trim()?toCents(freight):0);subtotal=r.subtotal;total=r.total;}catch{ /* Display inline validation on submit. */ }
  const update=(id:string,patch:Partial<DraftLine>)=>setLines(old=>old.map(l=>l.id===id?{...l,...patch}:l));
  async function submit(event:FormEvent){
   event.preventDefault();const client=supabase;if(!client)return;
   setError('');
   try{
-   const draft=validateQuoteDraft(customerId,lines,discount,products,customers);
+   const draft=validateQuoteDraft(customerId,lines,discount,products,customers,{freight,deliveryDate,paymentTerms,today:new Date().toLocaleDateString('sv-SE')});
    setPending(true);
-   const {error}=await client.rpc('create_quote_with_items',{p_customer_id:draft.customerId,p_items:draft.items,p_discount_cents:draft.discountCents,p_notes:notes});
+   const {error}=await client.rpc('create_quote_with_items',{p_customer_id:draft.customerId,p_items:draft.items,p_discount_cents:draft.discountCents,p_notes:notes,p_delivery_date:draft.deliveryDate,p_freight_cents:draft.freightCents,p_payment_terms:draft.paymentTerms});
    if(error)throw error;
    await onSaved();
   }catch(e){setError(friendlyError(e));}
@@ -90,8 +101,13 @@ function QuoteEditor({customers,products,onClose,onSaved}:{customers:Party[];pro
      </div>)}
      <button className="button-secondary commerce-add-line" type="button" onClick={()=>setLines(old=>[...old,newLine()])} disabled={lines.length>=100}><Plus size={17}/> Adicionar produto</button>
      <div className="form-divider"/>
-     <div className="form-field"><label htmlFor="quote-discount">Desconto total (R$)</label><input id="quote-discount" inputMode="decimal" type="text" required value={discount} onChange={e=>setDiscount(e.target.value)}/></div>
-     <div className="form-field"><label htmlFor="quote-notes">Observações</label><textarea id="quote-notes" rows={3} maxLength={2000} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Prazo, condições de pagamento, entrega..."/></div>
+     <div className="form-grid">
+      <div className="form-field"><label htmlFor="quote-discount">Desconto total (R$)</label><input id="quote-discount" inputMode="decimal" type="text" required value={discount} onChange={e=>setDiscount(e.target.value)}/></div>
+      <div className="form-field"><label htmlFor="quote-freight">Frete (R$)</label><input id="quote-freight" inputMode="decimal" type="text" value={freight} onChange={e=>setFreight(e.target.value)} placeholder="0,00"/></div>
+     </div>
+     <div className="form-field"><label htmlFor="quote-delivery">Data de entrega</label><input id="quote-delivery" type="date" value={deliveryDate} onChange={e=>setDeliveryDate(e.target.value)}/></div>
+     <div className="form-field"><label htmlFor="quote-payment">Forma de pagamento</label><input id="quote-payment" list="quote-payment-options" maxLength={500} value={paymentTerms} onChange={e=>setPaymentTerms(e.target.value)} placeholder="Ex.: 50% de entrada e o restante na entrega"/><datalist id="quote-payment-options"><option value="Entrada de 50% e o restante na entrega do pedido"/><option value="3x no cartão com 5% de acréscimo"/><option value="À vista"/></datalist></div>
+     <div className="form-field"><label htmlFor="quote-notes">Observações</label><textarea id="quote-notes" rows={3} maxLength={2000} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Detalhes de impressão, cores, acabamento..."/></div>
      <div className="quote-totals"><span>Subtotal <strong>{fmtCents(subtotal)}</strong></span><span className="total-final">Total da proposta <strong>{fmtCents(total)}</strong></span></div>
      {error&&<div className="form-error" role="alert">{error}</div>}
     </div>
@@ -111,7 +127,7 @@ export default function CommercePages({mode,products,customers,onNotice}:Props){
   const client=supabase;if(!client)return;
   setLoading(true);setError('');
   const [qs,os]=await Promise.all([
-   client.from('quotes').select('id,quote_number,customer_id,status,discount_cents,notes,created_at,quote_items(id,product_id,product_name,quantity,unit_price_cents)').order('created_at',{ascending:false}),
+   client.from('quotes').select('id,quote_number,customer_id,status,discount_cents,notes,created_at,delivery_date,freight_cents,payment_terms,quote_items(id,product_id,product_name,quantity,unit_price_cents)').order('created_at',{ascending:false}),
    client.from('orders').select('id,order_number,quote_id,customer_id,total_cents,status,created_at').order('created_at',{ascending:false})
   ]);
   if(qs.error||os.error)setError(qs.error?.message||os.error?.message||'Falha na consulta');
@@ -141,12 +157,11 @@ export default function CommercePages({mode,products,customers,onNotice}:Props){
   {error&&<div className="app-error" role="alert"><span>{error}</span><button onClick={()=>setError('')} aria-label="Fechar"><X size={17}/></button></div>}
   <section className="panel data-panel"><div className="data-heading"><span>{mode==='quotes'?'Propostas cadastradas':'Pedidos cadastrados'}</span><small>{mode==='quotes'?filteredQuotes.length:filteredOrders.length} registros</small></div>
    {loading?<div className="commerce-loading">Carregando dados…</div>:mode==='quotes'?filteredQuotes.length?filteredQuotes.map(q=>{
-    const subtotal=q.quote_items.reduce((sum,l)=>sum+l.unit_price_cents*l.quantity,0);
-    const total=subtotal-q.discount_cents;
+    const total=quoteTotal(q);
     const hasOrder=orders.some(o=>o.quote_id===q.id);
     return <div className="commerce-record" key={q.id}>
      <div className="commerce-record-header"><div><small>ORÇAMENTO {quoteNumber(q.quote_number)} · {shortDate(q.created_at)}</small><h3>{name(q.customer_id)}</h3></div><span className={'commerce-status s-'+q.status.toLowerCase()}>{q.status}</span></div>
-     <div className="commerce-summary"><span>{q.quote_items.length} {q.quote_items.length===1?'item':'itens'}</span><strong>{fmtCents(total)}</strong></div>
+     <div className="commerce-summary"><span>{q.quote_items.length} {q.quote_items.length===1?'item':'itens'}{q.delivery_date?' · entrega '+plainDate(q.delivery_date):''}{q.freight_cents?' · frete '+fmtCents(q.freight_cents):''}</span><strong>{fmtCents(total)}</strong></div>
      <div className="commerce-buttons"><button className="button-secondary" type="button" onClick={()=>void savePdf(q,customers.find(c=>c.id===q.customer_id)).catch(e=>setError(friendlyError(e)))}><Download size={16}/> PDF</button>
       {!hasOrder&&<select className="commerce-select" aria-label={'Alterar status '+q.quote_number} value={q.status} disabled={Boolean(busy)} onChange={e=>{const status=e.target.value;void execute(q.id,()=>supabase!.rpc('set_quote_status',{p_quote_id:q.id,p_status:status}),'Status atualizado.');}}><option>Rascunho</option><option>Enviado</option><option>Aprovado</option><option>Recusado</option></select>}
       {quoteCanBecomeOrder(q.status,hasOrder)&&<button className="button-primary" type="button" disabled={Boolean(busy)} onClick={()=>void execute(q.id,()=>supabase!.rpc('create_order_from_quote',{p_quote_id:q.id}),'Pedido criado com sucesso.')}><ShoppingBag size={16}/> Gerar pedido</button>}
@@ -155,7 +170,7 @@ export default function CommercePages({mode,products,customers,onNotice}:Props){
     </div>;
    }):<div className="commerce-loading">Ainda não há orçamentos. Cadastre um cliente e um produto para começar.</div>:filteredOrders.length?filteredOrders.map(o=><div className="commerce-record" key={o.id}>
     <div className="commerce-record-header"><div><small>PEDIDO #{String(o.order_number).padStart(5,'0')} · {shortDate(o.created_at)}</small><h3>{name(o.customer_id)}</h3></div><span className={'commerce-status '+(o.status==='Concluído'?'s-aprovado':'s-enviado')}>{o.status}</span></div>
-    <div className="commerce-summary"><span>Gerado a partir de orçamento aprovado</span><strong>{fmtCents(o.total_cents)}</strong></div>
+    <div className="commerce-summary"><span>Gerado a partir de orçamento aprovado{(()=>{const d=quotes.find(q=>q.id===o.quote_id)?.delivery_date;return d?' · entrega '+plainDate(d):'';})()}</span><strong>{fmtCents(o.total_cents)}</strong></div>
     <div className="commerce-buttons">{o.status!=='Concluído'&&<button className="button-primary" type="button" disabled={Boolean(busy)} onClick={()=>void execute(o.id,()=>supabase!.rpc('set_order_status',{p_order_id:o.id,p_status:'Concluído'}),'Pedido concluído.') }><Check size={16}/> Marcar concluído</button>}<span className="commerce-caption">Pedidos não debitam o estoque automaticamente.</span></div>
    </div>):<div className="commerce-loading">Nenhum pedido ainda. Aprove um orçamento para gerar o primeiro.</div>}
   </section>

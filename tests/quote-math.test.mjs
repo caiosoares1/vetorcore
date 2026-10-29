@@ -31,3 +31,9 @@ test('rejeita preço unitário negativo, fracionário e subtotal fora do limite'
  assert.throws(()=>quoteTotals([{quantity:1,unitPriceCents:1.2}],0));
  assert.throws(()=>quoteTotals([{quantity:999999999,unitPriceCents:Number.MAX_SAFE_INTEGER}],0));
 });
+test('frete soma ao total e não entra no limite do desconto',()=>{
+ assert.deepEqual(quoteTotals([{quantity:2,unitPriceCents:1000}],500,1500),{subtotal:2000,total:3000});
+ assert.throws(()=>quoteTotals([{quantity:1,unitPriceCents:100}],0,-1));
+ assert.throws(()=>quoteTotals([{quantity:1,unitPriceCents:100}],0,1.5));
+ assert.throws(()=>quoteTotals([{quantity:1,unitPriceCents:100}],0,Number.MAX_SAFE_INTEGER));
+});
