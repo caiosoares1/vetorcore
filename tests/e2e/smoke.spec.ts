@@ -18,6 +18,7 @@ async function connectMock(page:Page){
   if(path==='/rest/v1/products'){
    if(method==='GET')return route.fulfill(response(products));
    if(method==='POST'){const data=request.postDataJSON();products=[...products,{...data,id:productId,qty:0,cost_cents:data.cost_cents||0,price_cents:data.price_cents||0,min_qty:data.min_qty||0}];return route.fulfill({status:201,body:''});}
+   if(method==='PATCH'){const patch=request.postDataJSON();products=products.map(p=>p.id===productId?{...p,...patch}:p);return route.fulfill({status:204,body:''});}
   }
   if(path==='/rest/v1/stock_movements'&&method==='GET')return route.fulfill(response(stock));
   if(path==='/rest/v1/rpc/record_stock_movement'&&method==='POST'){
@@ -72,4 +73,23 @@ test('formulários podem ser fechados sem salvar',async({page})=>{
  await expect(page.getByRole('dialog')).toBeVisible();
  await page.getByRole('dialog').getByRole('button',{name:'Cancelar'}).click();
  await expect(page.getByRole('dialog')).not.toBeVisible();
+});
+
+test('arquivamento é confirmado na interface e pode ser restaurado',async({page})=>{
+ await login(page);
+ await page.getByRole('button',{name:'Produtos'}).first().click();
+ await page.getByRole('button',{name:'Novo produto'}).click();
+ const modal=page.getByRole('dialog');
+ await modal.getByLabel('Nome do produto').fill('Produto arquivável');
+ await modal.getByLabel('Código / SKU').fill('ARCH-01');
+ await modal.getByRole('button',{name:'Cadastrar produto'}).click();
+ await expect(page.getByText('Produto arquivável')).toBeVisible();
+ await page.getByRole('button',{name:'Arquivar',exact:true}).click();
+ await page.getByRole('alertdialog').getByRole('button',{name:'Confirmar arquivamento'}).click();
+ await expect(page.getByText('Produto arquivável')).not.toBeVisible();
+ await page.getByRole('button',{name:'Arquivados'}).click();
+ await expect(page.getByText('Produto arquivável')).toBeVisible();
+ await page.getByRole('button',{name:'Restaurar',exact:true}).click();
+ await page.getByRole('alertdialog').getByRole('button',{name:'Restaurar'}).click();
+ await expect(page.getByText('Produto arquivável')).not.toBeVisible();
 });

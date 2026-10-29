@@ -5,10 +5,10 @@ import {supabase} from '../lib/supabase';
 
 export type Product={
   id:string; name:string; sku:string; category:string; cost:number;
-  price:number; qty:number; min:number; supplierId:string|null;
+  price:number; qty:number; min:number; supplierId:string|null; archivedAt?:string|null;
 };
 export type Party={
-  id:string; name:string; doc:string; phone:string; email:string; category?:string;
+  id:string; name:string; doc:string; phone:string; email:string; category?:string; archivedAt?:string|null;
 };
 export type Movement={
   id:string; productId:string; delta:number; kind:string; note:string; createdAt:string;

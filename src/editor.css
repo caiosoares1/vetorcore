@@ -166,3 +166,12 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .balance-card strong{font-size:19px}
 }
 @media(prefers-reduced-motion:reduce){.editor-sheet,.spinning{animation:none!important}}
+
+.archive-overlay{position:fixed;z-index:120;inset:0;background:rgba(23,31,55,.48);display:grid;place-items:center;padding:20px}
+.archive-dialog{width:min(100%,430px);background:white;border-radius:15px;padding:27px;box-shadow:0 20px 70px #15203833}
+.archive-dialog h2{margin:0 0 13px;font-size:20px}
+.archive-dialog p{color:#69778d;line-height:1.6;font-size:13px}
+.archive-dialog p:first-of-type{font-weight:800;color:#29364b}
+.archive-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;flex-wrap:wrap}
+.archive-filter{min-width:90px}
+@media(max-width:740px){.archive-overlay{align-items:end;padding:0}.archive-dialog{width:100%;border-radius:18px 18px 0 0;padding:26px 20px max(20px,env(safe-area-inset-bottom))}.archive-actions button{flex:1;min-height:46px}.archive-filter{font-size:11px;padding:7px 9px}}

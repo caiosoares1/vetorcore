@@ -84,13 +84,13 @@ function QuoteEditor({customers,products,onClose,onSaved}:{customers:Party[];pro
    <form className="editor-form" onSubmit={submit}>
     <div className="editor-body commerce-form">
      <div className="form-section-title"><FileText size={18}/> Dados da proposta</div>
-     <div className="form-field"><label htmlFor="quote-customer">Cliente *</label><select required id="quote-customer" value={customerId} onChange={e=>setCustomerId(e.target.value)}><option value="">Selecione um cliente</option>{customers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+     <div className="form-field"><label htmlFor="quote-customer">Cliente *</label><select required id="quote-customer" value={customerId} onChange={e=>setCustomerId(e.target.value)}><option value="">Selecione um cliente</option>{customers.filter(c=>!c.archivedAt).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
      {!customers.length&&<p className="commerce-help">Cadastre um cliente antes de criar orçamentos.</p>}
      <div className="form-divider"/>
      <div className="form-section-title"><ShoppingBag size={18}/> Itens do orçamento</div>
      {lines.map((l,index)=><div className="quote-line" key={l.id}>
       <div className="quote-line-title"><strong>Item {index+1}</strong>{lines.length>1&&<button type="button" onClick={()=>setLines(old=>old.filter(x=>x.id!==l.id))} aria-label={'Remover item '+(index+1)}><Trash2 size={16}/></button>}</div>
-      <div className="form-field"><label htmlFor={'item-product-'+l.id}>Produto *</label><select required id={'item-product-'+l.id} value={l.productId} onChange={e=>update(l.id,{productId:e.target.value})}><option value="">Selecione um produto</option>{products.map(p=><option key={p.id} value={p.id}>{p.name} — {fmtCents(Math.round(p.price*100))}</option>)}</select></div>
+      <div className="form-field"><label htmlFor={'item-product-'+l.id}>Produto *</label><select required id={'item-product-'+l.id} value={l.productId} onChange={e=>update(l.id,{productId:e.target.value})}><option value="">Selecione um produto</option>{products.filter(p=>!p.archivedAt).map(p=><option key={p.id} value={p.id}>{p.name} — {fmtCents(Math.round(p.price*100))}</option>)}</select></div>
       <div className="quote-line-bottom"><div className="form-field"><label htmlFor={'item-qty-'+l.id}>Quantidade *</label><input id={'item-qty-'+l.id} required min={1} max={9999999} step={1} type="number" inputMode="numeric" value={l.quantity} onChange={e=>update(l.id,{quantity:e.target.value})}/></div><div className="line-total"><span>Subtotal do item</span><strong>{fmtCents((Number(l.quantity)||0)*Math.round((products.find(p=>p.id===l.productId)?.price||0)*100))}</strong></div></div>
      </div>)}
      <button className="button-secondary commerce-add-line" type="button" onClick={()=>setLines(old=>[...old,newLine()])} disabled={lines.length>=100}><Plus size={17}/> Adicionar produto</button>
