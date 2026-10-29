@@ -1,0 +1,52 @@
+# Arquitetura do Vetorcore
+
+## Limites do sistema
+
+Vetor Hub é uma **PWA React 18/TypeScript/Vite 6** implantada na Vercel. Não há servidor HTTP próprio, React Router ou estrutura de APIs Node no repositório. O navegador usa o SDK `@supabase/supabase-js` para acessar **Supabase Auth e PostgreSQL**. O app não é offline-first: o service worker pode armazenar a interface, mas não há mecanismo documentado para sincronizar escritas offline.
+
+Arquivos de entrada: `index.html` → `src/main.tsx` → `src/AuthGate.tsx` → `src/App.tsx`. `src/main.tsx` registra o service worker via `virtual:pwa-register`, com notificação de atualização. `src/App.tsx` mantém a página escolhida em estado React, com navegação desktop/mobile; não existem arquivos de rotas.
+
+## Fluxo de dados
+
+```text
+Navegador (React / PWA)
+  ├── AuthGate → Supabase Auth → Session
+  │                  └── public.app_members (permissão de acesso)
+  ├── App / RecordEditor → domínio (validação, centavos)
+  │     └── Supabase PostgREST → tabelas com RLS
+  ├── App (estoque) → public.record_stock_movement(...)
+  │     └── private.stock_movement(...) → products + stock_movements (transação)
+  ├── CommercePages → public.create_quote_with_items(...)
+  │     └── private.create_quote(...) → quotes + quote_items (transação)
+  ├── CommercePages → set_quote_status / create_order_from_quote / set_order_status
+  │     └── funções private → quotes / orders
+  └── CommercePages → jsPDF no navegador → arquivo PDF local
+```
+
+Os nomes de RPC e o esquema exato são verificáveis em `supabase/schema_snapshot.sql`; as tabelas iniciais aparecem em `supabase/migrations/0001_schema.sql`.
+
+## Autenticação e autorização
+
+`src/lib/supabase.ts` cria o cliente com `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`. `AuthGate` gerencia login por e-mail/senha, recuperação/definição de senha e sessão; consulta `public.app_members` para permitir acesso à interface. O banco aplica RLS às tabelas, e as funções privilegiadas `private.*` verificam `auth.uid()` e associação ao sistema. A verificação da interface **não substitui** a segurança do banco.
+
+## Cadastros e estoque
+
+`src/App.tsx` carrega produtos, clientes, fornecedores e movimentos via `.from(...).select(...)`. `RecordEditor.tsx` envia `insert`/`update`; entradas e saídas invocam `record_stock_movement`, responsável por impedir estoque negativo e escrever histórico junto com o saldo.
+
+`archived_at` marca arquivamento reversível de produtos, clientes e fornecedores; os filtros de interface separam ativos e arquivados. As funções do banco também recusam itens/cliente arquivados em novas operações relevantes. O componente `EditorSheet` renderiza drawer no desktop e tela cheia no mobile; estilos em `src/editor.css`.
+
+## Orçamentos, pedidos e PDF
+
+`CommercePages.tsx` lista `quotes` com `quote_items` e `orders`. `src/lib/domain.ts` valida clientes/produtos ativos, quantidades, descontos e duplicatas; `quoteMath.ts` manipula centavos. A criação é transacional no banco e congela os nomes/preços dos itens no orçamento. A proposta pode mudar de status; somente orçamento aprovado e ainda não convertido permite criar pedido. O pedido pode ser concluído. **Nenhum desses passos baixa o estoque automaticamente.** jsPDF gera o PDF no navegador, sem serviço de armazenamento externo.
+
+## Infraestrutura, testes e segurança
+
+- `vite.config.ts`: React + `vite-plugin-pwa`; `vercel.json`: build `npm run build`/saída `dist` e fallback de navegação.
+- `.github/workflows/ci.yml`: Node 22, `npm install`, `npm run test:coverage`, `npm run build`, Playwright Chromium e `npm run test:e2e`.
+- `tests/*.test.mjs`: funções puras; `tests/e2e/`: jornadas desktop/mobile com servidor Vite e Supabase interceptado por `tests/e2e/support/mockSupabase.ts`.
+- Resultados Playwright são **simulados**; testes transacionais reais do SQL foram executados manualmente, mas não são um job do CI (detalhes em `TESTING.md`).
+- `dist/` e `node_modules/` são gerados. Não incluir credenciais no frontend. Consulte `AGENTS.md` antes de alteração em banco.
+
+## Limitações e pontos em aberto
+
+Não há lint, formatter, lockfile ou script combinado de checagens versionados. Não há pasta de services/repositories separada; a UI chama o cliente Supabase diretamente. `src/data.ts` contém um modelo/dados de demonstração local anterior; seu papel atual não foi formalmente esclarecido. O snapshot do banco representa alterações posteriores à migration inicial, mas não constitui sequência incremental completa para reprovisionar ambientes. Backup/restauração, dispositivos físicos e integrações reais ainda carecem de validação documentada.
