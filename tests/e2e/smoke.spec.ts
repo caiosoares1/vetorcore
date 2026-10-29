@@ -130,3 +130,29 @@ test('mobile exibe formulário próprio e aviso de atualização acima da navega
  expect(visibility.zIndex).toBeGreaterThan(2);
  expect(visibility.rect.bottom).toBeLessThanOrEqual(viewport!.height);
 });
+
+test('menu inferior fica horizontal no mobile e permite navegação',async({page},testInfo)=>{
+ test.skip(testInfo.project.name!=='mobile','Somente layout mobile.');
+ await login(page);
+ const nav=page.getByRole('navigation',{name:'Navegação mobile'});
+ await expect(nav).toBeVisible();
+ const actual=await nav.evaluate(element=>{
+   const style=getComputedStyle(element);
+   const buttons=Array.from(element.querySelectorAll('button'));
+   const rects=buttons.map(b=>b.getBoundingClientRect());
+   return {
+     direction:style.flexDirection,
+     buttonCount:buttons.length,
+     firstTop:rects[0]?.top,
+     lastTop:rects[rects.length-1]?.top,
+     navWidth:element.getBoundingClientRect().width,
+     viewportWidth:window.innerWidth
+   };
+ });
+ expect(actual.direction).toBe('row');
+ expect(actual.buttonCount).toBe(7);
+ expect(Math.abs(actual.firstTop-actual.lastTop)).toBeLessThan(5);
+ expect(actual.navWidth).toBeLessThanOrEqual(actual.viewportWidth+1);
+ await nav.getByRole('button',{name:'Produtos'}).click();
+ await expect(page.getByRole('heading',{name:'Produtos',exact:true})).toBeVisible();
+});
