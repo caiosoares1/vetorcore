@@ -20,7 +20,8 @@ Só havia um membro em `public.app_members` e nenhuma forma de dar acesso a outr
 4. `authenticated` continua só com `SELECT` na própria linha de `app_members`; nenhuma escrita direta — toda mudança passa por funções `SECURITY DEFINER` com `search_path` vazio.
 5. Senha: mínimo de 12 caracteres, máximo de 72 bytes (limite do bcrypt), confirmação obrigatória, não igual ao e-mail e não trivialmente repetitiva (validada no frontend; o mínimo deve ser repetido no painel do Supabase).
 
-## Configuração obrigatória no painel do Supabase (não versionada)
+## Configuração do Supabase Auth
+Versionada em `supabase/config.toml` (puxada com `supabase config pull`; alterar o arquivo, conferir `supabase config diff` e aplicar com `supabase config push`). Aplicado em 2026-10-29: senha mínima 12 e `secure_password_change`; cadastro, confirmação de e-mail e Site URL `https://vetorcore.vercel.app` já estavam corretos.
 - Authentication → Sign In / Providers → Email: **Allow new users to sign up** ligado e **Confirm email** ligado.
 - Authentication → Policies/Passwords: tamanho mínimo **12**; se o plano permitir, ligar **leaked password protection**.
 - Authentication → URL Configuration: **Site URL** com o domínio de produção e o domínio em **Redirect URLs** (usado em `emailRedirectTo` e na recuperação de senha).
