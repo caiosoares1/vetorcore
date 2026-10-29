@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import AuthGate from './AuthGate';
 import './style.css';
+import './editor.css';
 import { registerSW } from 'virtual:pwa-register';
 const updateSW = registerSW({onNeedRefresh() {
   const bar = document.createElement('div');
