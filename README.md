@@ -43,3 +43,15 @@ O workflow `.github/workflows/ci.yml` executa a checagem de build, mas **não pu
 - Publicar na hospedagem, ativar URL HTTPS e testar a PWA no Android e no iOS
 
 O pacote demonstrativo mais completo desenvolvido anteriormente não foi incorporado integralmente a este commit.
+
+
+## Supabase (em andamento)
+O projeto remoto `vetorcore` existe na região `sa-east-1`. O frontend usa `@supabase/supabase-js` e autenticação por e-mail/senha.
+
+Na Vercel estão definidas as variáveis públicas `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`. **Nunca use uma secret key ou service_role no frontend.**
+
+O banco tem tabelas e políticas RLS. Não existe usuário autorizado por padrão: crie o usuário no painel Supabase Auth e, depois, um administrador deverá cadastrá-lo na tabela `app_members` com seu UUID. O aplicativo não oferece autoinscrição nem registra contas por conta própria.
+
+**Limitação importante:** a autenticação e o banco estão preparados, porém a interface de produtos, estoque, clientes, fornecedores e orçamentos continua usando `localStorage` após o login. Esses dados não são compartilhados entre dispositivos, não aparecem no banco e **não são adequados para produção**. A migração de cada operação para o Supabase, incluindo funções transacionais, ainda é etapa pendente.
+
+O plano gratuito de hospedagem pode ter restrições para uso comercial.
