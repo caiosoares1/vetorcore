@@ -128,7 +128,7 @@ export default function CommercePages({mode,products,customers,onNotice}:Props){
  },[]);
  useEffect(()=>{void reload();},[reload]);
  const name=(id:string)=>customers.find(c=>c.id===id)?.name||'Cliente não encontrado';
- async function execute(label:string,action:()=>Promise<{error: {message:string}|null}>,message:string){
+ async function execute(label:string,action:()=>PromiseLike<{error: {message:string}|null}>,message:string){
   setBusy(label);setError('');
   try{
    const result=await action();
