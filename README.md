@@ -1,39 +1,45 @@
 # Vetor Hub
 
-Aplicativo de gestão comercial e estoque da **Vetor Embalagens**, com interface responsiva para celular e computador, usando React + TypeScript + Vite.
+Aplicação web responsiva (PWA) para a Vetor Embalagens. **Versão inicial demonstrativa e simplificada.**
 
-## Estado
+## Conteúdo publicado
+- React 18 + TypeScript + Vite
+- Layout desktop/mobile com identidade roxo e laranja
+- Painel geral e listagem de produtos
+- Cadastro simplificado de produtos, clientes, fornecedores e orçamentos
+- Entradas e saídas de estoque em modo local
+- Manifest PWA e notificação de nova versão
+- GitHub Actions para checagem de build
+- Esboço de esquema SQL em `supabase/migrations/0001_schema.sql`
 
-**MVP de demonstração. Não usar para dados reais da empresa.** Os dados são fictícios e persistidos apenas neste navegador por meio de `localStorage`. Não há login/autenticação reais, autorização ou sincronização entre dispositivos. O arquivo SQL é um rascunho de esquema, não um backend conectado.
+**Atenção:** não há login verdadeiro, banco conectado, sincronização entre dispositivos nem validação transacional no servidor. Os dados são fictícios, armazenados apenas no `localStorage` deste navegador. Não use para operações comerciais reais.
 
 ## Rodar
-
-Requer Node.js 22.
+Instale Node.js 22 e execute:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Validação: `npm run build`.
+Para testar a compilação:
 
-## Publicação automática (PWA)
+```bash
+npm run build
+npm run preview
+```
 
-1. Conecte este repositório ao Cloudflare Pages.
-2. Configure **Build command**: `npm run build`; **Output directory**: `dist`.
-3. Configure deploy da branch `main`.
-4. Ao concluir o deploy, abra a URL HTTPS no celular, escolha *Adicionar à tela inicial* e utilize como PWA.
+## Deploy automático
+Conecte o repositório no Cloudflare Pages. Configure comando de build `npm run build` e diretório de saída `dist`. Um novo push na branch `main` dispara o deploy após a configuração. O navegador recebe a nova versão da PWA de acordo com o ciclo de atualização do service worker.
 
-Mudanças na branch principal geram novo deploy. O service worker mostra aviso quando identifica atualização; pode haver atraso devido ao cache/navegador. A publicação no GitHub não faz deploy sozinha.
+O workflow `.github/workflows/ci.yml` executa a checagem de build, mas **não publica automaticamente o site** até a hospedagem ser configurada.
 
-## Próximos passos antes de produção
+## Próximas etapas
+- Revisar e executar a compilação num ambiente com dependências instaladas
+- Conectar Supabase Auth e PostgreSQL com políticas RLS
+- Implementar movimentos de estoque em transações SQL e testes
+- Evoluir orçamentos para itens, descontos e PDF
+- Substituir cadastros simplificados por formulários validados
+- Publicar na hospedagem, ativar URL HTTPS e testar a PWA no Android e no iOS
 
-- Supabase Auth, PostgreSQL e RLS com policies de acesso autenticado;
-- Movimentações de estoque transacionais via PostgreSQL, com proteção contra concorrência;
-- Auditoria, backups e restauração;
-- Testes automatizados e validação do build no CI;
-- Dados comerciais reais somente após segurança e persistência na nuvem.
-
-## Identidade visual
-
-Paleta roxo, laranja e branco inspirada na marca Vetor Embalagens. Os ícones SVG são uma adaptação vetorial simplificada. As informações de exemplo não são dados reais.
+O pacote demonstrativo mais completo desenvolvido anteriormente não foi incorporado integralmente a este commit.
