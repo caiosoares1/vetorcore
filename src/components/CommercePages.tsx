@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useState,type FormEvent} from 'react';
-import {Check,CheckCircle2,ClipboardList,Download,FileText,Plus,RefreshCw,Send,ShoppingBag,Trash2,X} from 'lucide-react';
+import {Check,CheckCircle2,Download,FileText,Plus,RefreshCw,ShoppingBag,Trash2,X} from 'lucide-react';
 import {supabase} from '../lib/supabase';
 import EditorSheet from './EditorSheet';
 import {fmtCents,quoteTotals,toCents} from '../lib/quoteMath';
