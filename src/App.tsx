@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import {Package,LayoutDashboard,FileText,Truck,Users,ArrowDownUp,Plus,Search,LogOut} from 'lucide-react';
+import {Package,LayoutDashboard,FileText,Truck,Users,ArrowDownUp,Plus,Search} from 'lucide-react';
 type Item={id:string;name:string;sku:string;qty:number;min:number;price:number};
 type Client={id:string;name:string;phone:string};
 type Quote={id:string;client:string;value:number;status:string};
