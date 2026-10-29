@@ -4,6 +4,7 @@ import App from './App';
 import AuthGate from './AuthGate';
 import './style.css';
 import './editor.css';
+import './commerce.css';
 import { registerSW } from 'virtual:pwa-register';
 const updateSW = registerSW({onNeedRefresh() {
   const bar = document.createElement('div');

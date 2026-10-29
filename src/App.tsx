@@ -1,13 +1,15 @@
 import {useEffect,useMemo,useState} from 'react';
-import {AlertCircle,ArrowDownCircle,ArrowUpCircle,ArrowDownUp,Box,CheckCircle2,ChevronRight,FileText,LayoutDashboard,Package,PenLine,Plus,RefreshCw,Search,Truck,Users,X} from 'lucide-react';
+import {AlertCircle,ArrowDownCircle,ArrowUpCircle,ArrowDownUp,Box,CheckCircle2,ChevronRight,ClipboardList,FileText,LayoutDashboard,Package,PenLine,Plus,RefreshCw,Search,Truck,Users,X} from 'lucide-react';
 import {supabase} from './lib/supabase';
 import RecordEditor,{type Product,type Party,type Movement,type EditorTarget} from './components/RecordEditor';
+import CommercePages from './components/CommercePages';
 
-type Page='home'|'products'|'quotes'|'suppliers'|'customers'|'moves';
+type Page='home'|'products'|'quotes'|'orders'|'suppliers'|'customers'|'moves';
 const navItems=[
   {key:'home',label:'Início',Icon:LayoutDashboard},
   {key:'products',label:'Produtos',Icon:Package},
   {key:'quotes',label:'Orçamentos',Icon:FileText},
+  {key:'orders',label:'Pedidos',Icon:ClipboardList},
   {key:'suppliers',label:'Fornecedores',Icon:Truck},
   {key:'customers',label:'Clientes',Icon:Users},
   {key:'moves',label:'Estoque',Icon:ArrowDownUp}
@@ -103,7 +105,7 @@ export default function App(){
            <button type="button" onClick={()=>{navigate('customers');setEditor({kind:'party',table:'customers'});}}><div className="quick-icon"><Users size={19}/></div><span><strong>Novo cliente</strong><small>Cadastrar contato</small></span><ChevronRight size={18}/></button>
          </div></section>
          <div className="sync-caption">Última sincronização: {syncedAt?syncedAt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'carregando...'}</div>
-       </>:<div className="content-page">
+       </>:(page==='quotes'||page==='orders')?<CommercePages mode={page} products={products} customers={customers} onNotice={setToast}/>:<div className="content-page">
          <div className="page-heading">
            <div><h2>{page==='products'?'Catálogo de produtos':page==='customers'?'Seus clientes':page==='suppliers'?'Rede de fornecedores':page==='moves'?'Controle de estoque':'Orçamentos'}</h2><p>{page==='products'?'Gerencie preços, categorias e quantidades.':page==='customers'?'Cadastre e organize seus contatos comerciais.':page==='suppliers'?'Tenha os dados dos seus parceiros à mão.':page==='moves'?'Registre cada entrada e saída com rastreabilidade.':'Em breve: crie propostas e transforme-as em pedidos.'}</p></div>
            {canCreate&&<button className="button-primary add-button" type="button" onClick={create}><Plus size={18}/><span>{page==='products'?'Novo produto':page==='customers'?'Novo cliente':'Novo fornecedor'}</span></button>}
@@ -135,7 +137,7 @@ export default function App(){
              <div className="record-actions"><button type="button" className="action-edit" onClick={()=>setEditor({kind:'party',table:page,item:p})}><PenLine size={15}/> Editar</button></div>
            </div>)}</div>}
          </section>}
-         {page==='quotes'&&<section className="panel data-panel"><div className="feature-pending"><div className="empty-icon"><FileText size={26}/></div><span className="feature-label">EM DESENVOLVIMENTO</span><h3>Orçamentos e pedidos</h3><p>Esta área será conectada ao Supabase com itens, descontos e geração de PDF. O cadastro está indisponível até ficar pronto para uso.</p></div></section>}
+
        </div>}
      </main>
      <footer>Vetor Hub · Gestão conectada ao Supabase</footer>
