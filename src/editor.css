@@ -175,3 +175,24 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .archive-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;flex-wrap:wrap}
 .archive-filter{min-width:90px}
 @media(max-width:740px){.archive-overlay{align-items:end;padding:0}.archive-dialog{width:100%;border-radius:18px 18px 0 0;padding:26px 20px max(20px,env(safe-area-inset-bottom))}.archive-actions button{flex:1;min-height:46px}.archive-filter{font-size:11px;padding:7px 9px}}
+
+/* The PWA update prompt must stay visible above the mobile bottom navigation. */
+.update-banner{
+  position:fixed;left:50%;bottom:max(22px,env(safe-area-inset-bottom));transform:translateX(-50%);
+  z-index:300;width:min(calc(100% - 32px),540px);display:flex;align-items:center;justify-content:space-between;
+  gap:16px;border:1px solid #d8dbee;border-radius:14px;padding:14px 16px;
+  background:#fff;box-shadow:0 12px 38px #111b3840;color:#27304b;font-size:13px;line-height:1.45
+}
+.update-banner>span{flex:1;min-width:0}
+.update-banner-actions{display:flex;align-items:center;gap:8px;flex:none}
+.update-banner button{border-radius:8px;font-weight:700;min-height:38px;padding:8px 11px;font-size:12px}
+.update-banner-later{color:#525e7a;background:#f3f4f9;border:1px solid #e2e5f0}
+.update-banner-now{color:#fff;background:#373b95;border:1px solid #373b95}
+.update-banner-now:disabled{opacity:.65}
+@media(max-width:740px){
+  .update-banner{
+    bottom:calc(75px + env(safe-area-inset-bottom));left:12px;right:12px;transform:none;width:auto;
+    padding:13px;gap:12px;flex-direction:column;align-items:stretch
+  }
+  .update-banner-actions{justify-content:flex-end}
+}

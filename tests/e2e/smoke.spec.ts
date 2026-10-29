@@ -95,3 +95,38 @@ test('arquivamento é confirmado na interface e pode ser restaurado',async({page
  await expect(page.getByRole('alertdialog')).not.toBeVisible();
  await expect(page.locator('.record-description strong').getByText('Produto arquivável')).toHaveCount(0);
 });
+
+test('mobile exibe formulário próprio e aviso de atualização acima da navegação',async({page},testInfo)=>{
+ test.skip(testInfo.project.name!=='mobile','Teste dedicado ao layout mobile.');
+ const nativeDialogs:string[]=[];
+ page.on('dialog',dialog=>{nativeDialogs.push(dialog.type());void dialog.dismiss();});
+ await login(page);
+ await page.getByRole('button',{name:'Produtos'}).first().click();
+ await page.getByRole('button',{name:'Novo produto'}).click();
+ const editor=page.getByRole('dialog');
+ await expect(editor).toBeVisible();
+ const bounds=await editor.boundingBox();
+ const viewport=page.viewportSize();
+ expect(bounds).not.toBeNull();
+ expect(viewport).not.toBeNull();
+ expect(Math.abs(bounds!.width-viewport!.width)).toBeLessThanOrEqual(1);
+ expect(Math.abs(bounds!.height-viewport!.height)).toBeLessThanOrEqual(2);
+ expect(nativeDialogs).toEqual([]);
+ await editor.getByRole('button',{name:'Cancelar'}).click();
+ await page.evaluate(()=>{
+   const bar=document.createElement('div');
+   bar.id='pwa-update-banner';
+   bar.className='update-banner';
+   bar.textContent='Uma nova versão do Vetor Hub está disponível.';
+   document.body.appendChild(bar);
+ });
+ const bar=page.locator('#pwa-update-banner');
+ await expect(bar).toBeInViewport();
+ const visibility=await bar.evaluate(el=>{
+  const style=getComputedStyle(el);
+  return {position:style.position,zIndex:Number(style.zIndex),rect:el.getBoundingClientRect().toJSON()};
+ });
+ expect(visibility.position).toBe('fixed');
+ expect(visibility.zIndex).toBeGreaterThan(2);
+ expect(visibility.rect.bottom).toBeLessThanOrEqual(viewport!.height);
+});
