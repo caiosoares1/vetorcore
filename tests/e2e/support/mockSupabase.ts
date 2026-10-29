@@ -2,7 +2,9 @@ import type {Page,Route} from '@playwright/test';
 
 type Row=Record<string,unknown>;
 type Entity='products'|'customers'|'suppliers'|'quotes'|'orders'|'stock_movements';
-type Options={invalidLogin?:boolean;unauthorized?:boolean;initialProducts?:Row[];initialCustomers?:Row[];initialSuppliers?:Row[]};
+type Options={invalidLogin?:boolean;unauthorized?:boolean;role?:'admin'|'member';initialProducts?:Row[];initialCustomers?:Row[];initialSuppliers?:Row[]};
+// Único código aceito pelo resgate simulado; não é segredo real.
+export const validInviteCode='1A2B-3C4D-5E6F-7A8B';
 const userId='11111111-1111-4111-8111-111111111111';
 const jwt=[
  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
@@ -26,7 +28,10 @@ export async function mockBackend(page:Page,options:Options={}){
  };
  const calls:{path:string;method:string;body:unknown}[]=[];
  let failedRequest='';
- const mock={store,calls,failNext:(path:string)=>{failedRequest=path;}};
+ let member:Row|null=options.unauthorized?null:{user_id:userId,role:options.role||'admin'};
+ const members:Row[]=member?[{user_id:userId,email:user.email,role:member.role,created_at:'2026-01-01T00:00:00Z'},{user_id:'22222222-2222-4222-8222-222222222222',email:'ana@example.com',role:'member',created_at:'2026-02-01T00:00:00Z'}]:[];
+ const invites:Row[]=[];
+ const mock={store,calls,members,invites,failNext:(path:string)=>{failedRequest=path;}};
  await page.route('https://test.supabase.co/**',async(route:Route)=>{
   const request=route.request(),url=new URL(request.url()),path=url.pathname,method=request.method();
   const body=request.postDataJSON?.()??null;
@@ -40,7 +45,8 @@ export async function mockBackend(page:Page,options:Options={}){
   if(path==='/auth/v1/user')return reply(user);
   if(path==='/auth/v1/logout')return reply({});
   if(path==='/auth/v1/recover')return reply({});
-  if(path.includes('/rest/v1/app_members'))return options.unauthorized?reply(null):reply({user_id:userId});
+  if(path==='/auth/v1/signup')return reply({...user,id:'33333333-3333-4333-8333-333333333333',email:(body as Row)?.email,identities:[],confirmation_sent_at:'2026-01-01T00:00:00Z'});
+  if(path.includes('/rest/v1/app_members'))return reply(member);
   const match=path.match(/^\/rest\/v1\/(products|customers|suppliers|quotes|orders|stock_movements)$/);
   if(match){
    const table=match[1] as Entity;
@@ -70,6 +76,36 @@ export async function mockBackend(page:Page,options:Options={}){
   if(path.startsWith('/rest/v1/rpc/')){
    const action=path.split('/').pop()!;
    const data=body as Row;
+   const isAdmin=member?.role==='admin';
+   const adminOnly=['list_members','list_invite_codes','create_invite_code','revoke_invite_code','set_member_role','remove_member'];
+   if(adminOnly.includes(action)&&!isAdmin)return route.fulfill(failure('Apenas administradores podem gerenciar usuários',403));
+   if(action==='redeem_invite_code'){
+    if(member)return route.fulfill(failure('Esta conta já tem acesso'));
+    if(data.p_code!==validInviteCode)return reply(null);
+    member={user_id:userId,role:'member'};
+    return reply('member');
+   }
+   if(action==='list_members')return reply(members);
+   if(action==='list_invite_codes')return reply(invites);
+   if(action==='create_invite_code'){
+    const id=nextId(),expires=new Date(Date.now()+Number(data.p_valid_hours)*3600_000).toISOString();
+    invites.unshift({invite_id:id,role:data.p_role,note:data.p_note,created_at:new Date().toISOString(),expires_at:expires,used_at:null,used_by_email:null,revoked_at:null});
+    return reply([{invite_id:id,invite_code:'9F8E-7D6C-5B4A-3210',invite_expires_at:expires}]);
+   }
+   if(action==='revoke_invite_code'){
+    const invite=invites.find(x=>x.invite_id===data.p_invite_id&&!x.used_at&&!x.revoked_at);
+    if(!invite)return route.fulfill(failure('Convite não encontrado ou já utilizado'));
+    invite.revoked_at=new Date().toISOString();
+    return reply(null);
+   }
+   if(action==='set_member_role'||action==='remove_member'){
+    const target=members.find(x=>x.user_id===data.p_user_id);
+    if(!target)return route.fulfill(failure('Membro não encontrado'));
+    const next=action==='remove_member'?null:data.p_role;
+    if(target.role==='admin'&&next!=='admin'&&members.filter(x=>x.role==='admin').length<=1)return route.fulfill(failure('O sistema precisa de ao menos um administrador'));
+    if(next===null)members.splice(members.indexOf(target),1);else target.role=next;
+    return reply(null);
+   }
    if(action==='record_stock_movement'){
     const p=store.products.find(x=>x.id===data.p_product_id);
     if(!p||p.archived_at)return route.fulfill(failure('Produto não encontrado'));

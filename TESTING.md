@@ -13,7 +13,8 @@ A suíte é executada no GitHub Actions em cada push e pull request para `main`.
 
 ## Mapa de cobertura
 
-- **Autenticação:** login válido/inválido, usuário não autorizado, recuperação de senha, saída.
+- **Autenticação:** login válido/inválido, usuário não autorizado, recuperação de senha, saída, criação de conta com convite (validação de senha/código), ativação por código válido/inválido.
+- **Usuários (admin):** gerar/revogar convite, alterar papel, remover acesso, proteção do último admin, membro comum sem acesso à tela (`tests/e2e/access.spec.ts`, `tests/auth.test.mjs`).
 - **Catálogo:** listar, buscar, cadastrar, editar, tratar erros HTTP, validar custo, preço, SKU, nome e estoque mínimo.
 - **Pessoas:** cadastrar/editar clientes e fornecedores, dados de contato e e-mail.
 - **Estoque:** entradas, saídas, saldo atualizado, histórico, limite de estoque, rejeição de saldo negativo e quantidades inválidas.

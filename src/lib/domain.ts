@@ -158,3 +158,60 @@ export function errorMessage(error:unknown,fallback:string):string{
  if(error&&typeof error==='object'&&'message' in error&&typeof error.message==='string')return error.message;
  return fallback;
 }
+
+export type MemberRole='admin'|'member';
+export const PASSWORD_MIN_LENGTH=12;
+const emailPattern=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function validateNewPassword(password:string,confirm:string,email=''):string{
+ if(password.length<PASSWORD_MIN_LENGTH)throw new Error('Use ao menos '+PASSWORD_MIN_LENGTH+' caracteres na senha.');
+ // bcrypt (Supabase Auth) ignora o que passa de 72 bytes.
+ if(new TextEncoder().encode(password).length>72)throw new Error('Senha muito longa (máximo de 72 bytes).');
+ if(!password.trim())throw new Error('A senha não pode ser só espaços.');
+ if(email&&password.trim().toLocaleLowerCase('pt-BR')===email.trim().toLocaleLowerCase('pt-BR'))throw new Error('A senha não pode ser igual ao e-mail.');
+ if(new Set(password).size<5)throw new Error('Senha muito previsível: use caracteres mais variados.');
+ if(password!==confirm)throw new Error('As senhas não conferem.');
+ return password;
+}
+
+export function normalizeInviteCode(raw:string):string{
+ const compact=raw.replace(/[^0-9a-z]/gi,'').toUpperCase();
+ if(!/^[0-9A-F]{16}$/.test(compact))throw new Error('Código de convite inválido: use os 16 caracteres no formato XXXX-XXXX-XXXX-XXXX.');
+ return compact.match(/.{4}/g)!.join('-');
+}
+
+export function signupPayload(data:{email:string;password:string;confirm:string;code:string}){
+ const email=data.email.trim().toLowerCase();
+ if(!emailPattern.test(email)||email.length>254)throw new Error('E-mail inválido.');
+ const code=normalizeInviteCode(data.code);
+ return {email,password:validateNewPassword(data.password,data.confirm,email),code};
+}
+
+export function inviteStatus(invite:{expires_at:string;used_at?:string|null;revoked_at?:string|null},now=new Date()):'Usado'|'Revogado'|'Expirado'|'Ativo'{
+ if(invite.used_at)return 'Usado';
+ if(invite.revoked_at)return 'Revogado';
+ if(new Date(invite.expires_at).getTime()<=now.getTime())return 'Expirado';
+ return 'Ativo';
+}
+
+/** Mensagem de bloqueio para trocar papel/remover membro, ou null quando permitido. O banco repete a checagem. */
+export function memberChangeBlock(members:{user_id:string;role:MemberRole}[],userId:string,next:MemberRole|null):string|null{
+ const target=members.find(m=>m.user_id===userId);
+ if(!target)return 'Membro não encontrado.';
+ if(next!==null&&target.role===next)return 'O membro já tem esse papel.';
+ const admins=members.filter(m=>m.role==='admin').length;
+ if(target.role==='admin'&&next!=='admin'&&admins<=1)return 'O sistema precisa de ao menos um administrador.';
+ return null;
+}
+
+export function authErrorMessage(error:unknown):string{
+ const message=errorMessage(error,'').toLowerCase();
+ const status=error&&typeof error==='object'&&'status' in error?Number(error.status):0;
+ if(status===429||message.includes('rate limit')||message.includes('too many'))return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
+ if(message.includes('email not confirmed'))return 'Confirme seu e-mail pelo link enviado antes de entrar.';
+ if(message.includes('invalid login credentials'))return 'E-mail ou senha inválidos.';
+ if(message.includes('signups not allowed')||message.includes('signup is disabled'))return 'A criação de contas está desativada no momento.';
+ if(message.includes('weak')||message.includes('pwned')||message.includes('password should'))return 'Senha recusada por ser fraca ou já ter vazado. Escolha outra.';
+ if(message.includes('already registered')||message.includes('already exists'))return 'Não foi possível criar a conta com esses dados.';
+ return errorMessage(error,'Não foi possível concluir a operação.');
+}

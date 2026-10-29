@@ -29,6 +29,8 @@ Os nomes de RPC e o esquema exato são verificáveis em `supabase/schema_snapsho
 
 `src/lib/supabase.ts` cria o cliente com `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`. `AuthGate` gerencia login por e-mail/senha, recuperação/definição de senha e sessão; consulta `public.app_members` para permitir acesso à interface. O banco aplica RLS às tabelas, e as funções privilegiadas `private.*` verificam `auth.uid()` e associação ao sistema. A verificação da interface **não substitui** a segurança do banco.
 
+Criação de conta e papéis (ADR-0005, migration `0003_member_access.sql`): qualquer pessoa cria conta com e-mail confirmado, mas só entra em `app_members` ao resgatar um código de convite de uso único via `redeem_invite_code`. `app_members.role` distingue `admin` de `member`; somente admins veem a página **Usuários** (`src/components/UsersPage.tsx`) e executam `create_invite_code`, `list_invite_codes`, `revoke_invite_code`, `list_members`, `set_member_role` e `remove_member`. O banco garante ao menos um admin. `AuthGate` expõe o papel via `MemberRoleContext`.
+
 ## Cadastros e estoque
 
 `src/App.tsx` carrega produtos, clientes, fornecedores e movimentos via `.from(...).select(...)`. `RecordEditor.tsx` envia `insert`/`update`; entradas e saídas invocam `record_stock_movement`, responsável por impedir estoque negativo e escrever histórico junto com o saldo.

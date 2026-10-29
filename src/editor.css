@@ -196,3 +196,16 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   }
   .update-banner-actions{justify-content:flex-end}
 }
+/* Usuários e convites (somente administradores) */
+.users-page .page-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.invite-form{display:grid;grid-template-columns:160px 140px minmax(0,1fr) auto;gap:12px;align-items:end;margin-top:18px}
+.invite-form label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:#404b62}
+.invite-form select,.invite-form input{border:1px solid #d6dbe5;border-radius:9px;padding:10px;min-height:41px;background:#fff;font:inherit;width:100%}
+.invite-created{margin-top:18px;border:1px solid #cfe9d9;background:#eef8f2;border-radius:11px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;font-size:13px;color:#1f6f43}
+.invite-created>div{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.invite-created code{font-size:20px;font-weight:800;letter-spacing:2px;color:#20263a;background:#fff;border:1px dashed #9ccfb1;border-radius:8px;padding:8px 12px;user-select:all}
+.invite-created small{color:#4a6b58}
+.invite-status{font-size:11px;font-weight:700;border-radius:999px;padding:4px 10px;background:#eef0f5;color:#5a6479;white-space:nowrap}
+.invite-status.status-ativo{background:#e8f6ee;color:#1f6f43}
+.invite-status.status-usado{background:#eeeff9;color:var(--brand)}
+@media(max-width:740px){.invite-form{grid-template-columns:1fr 1fr}.invite-form .invite-note,.invite-form button{grid-column:1/-1}.invite-created code{font-size:17px;letter-spacing:1px}.member-record .record-actions,.invite-record .record-actions{width:100%;justify-content:flex-end}}

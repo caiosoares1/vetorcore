@@ -1,11 +1,13 @@
-import {useEffect,useMemo,useState} from 'react';
-import {AlertCircle,ArrowDownCircle,ArrowUpCircle,ArrowDownUp,Box,CheckCircle2,ChevronRight,ClipboardList,FileText,LayoutDashboard,Package,PenLine,Plus,RefreshCw,Search,Truck,Users,X} from 'lucide-react';
+import {useContext,useEffect,useMemo,useState} from 'react';
+import {AlertCircle,ArrowDownCircle,ArrowUpCircle,ArrowDownUp,Box,CheckCircle2,ChevronRight,ClipboardList,FileText,LayoutDashboard,Package,PenLine,Plus,RefreshCw,Search,ShieldCheck,Truck,Users,X} from 'lucide-react';
 import {supabase} from './lib/supabase';
 import RecordEditor,{type Product,type Party,type Movement,type EditorTarget} from './components/RecordEditor';
 import CommercePages from './components/CommercePages';
+import UsersPage from './components/UsersPage';
+import {MemberRoleContext} from './AuthGate';
 import {inventoryStats,errorMessage,bagSpecLabel,productMargin} from './lib/domain';
 
-type Page='home'|'products'|'quotes'|'orders'|'suppliers'|'customers'|'moves';
+type Page='home'|'products'|'quotes'|'orders'|'suppliers'|'customers'|'moves'|'users';
 const navItems=[
   {key:'home',label:'Início',Icon:LayoutDashboard},
   {key:'products',label:'Produtos',Icon:Package},
@@ -15,6 +17,8 @@ const navItems=[
   {key:'customers',label:'Clientes',Icon:Users},
   {key:'moves',label:'Estoque',Icon:ArrowDownUp}
 ] as const;
+// Visível só para administradores; as RPCs de usuários recusam quem não é admin.
+const adminNavItems=[...navItems,{key:'users',label:'Usuários',Icon:ShieldCheck}] as const;
 const currency=(amount:number)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(amount);
 
 function EmptyState({title,description,onAction,actionLabel}:{title:string;description:string;onAction?:()=>void;actionLabel?:string}){
@@ -22,6 +26,8 @@ function EmptyState({title,description,onAction,actionLabel}:{title:string;descr
 }
 
 export default function App(){
+ const role=useContext(MemberRoleContext);
+ const visibleNav=role==='admin'?adminNavItems:navItems;
  const [page,setPage]=useState<Page>('home');
  const [products,setProducts]=useState<Product[]>([]);
  const [customers,setCustomers]=useState<Party[]>([]);
@@ -77,7 +83,7 @@ export default function App(){
  function create(){if(page==='products')setEditor({kind:'product'});if(page==='customers')setEditor({kind:'party',table:'customers'});if(page==='suppliers')setEditor({kind:'party',table:'suppliers'});}
  async function saved(message:string){await refresh(true);setEditor(null);setToast(message);}
  async function archiveRecord(){const target=archiveTarget,client=supabase;if(!target||!client)return;setArchiveBusy(true);setError('');try{const {error}=await client.from(target.table).update({archived_at:target.archived?null:new Date().toISOString()}).eq('id',target.id).select('id').single();if(error)throw error;await refresh(true);setArchiveTarget(null);setToast(target.archived?'Cadastro restaurado.':'Cadastro arquivado.');}catch(e){setError(errorMessage(e,'Falha ao alterar cadastro.'));}finally{setArchiveBusy(false);}}
- const current=navItems.find(x=>x.key===page)!;
+ const current=adminNavItems.find(x=>x.key===page)!;
  const hasSearch=page==='products'||page==='customers'||page==='suppliers'||page==='moves';
  const canCreate=page==='products'||page==='customers'||page==='suppliers';
  const move=(product:Product,direction:'Entrada'|'Saída')=>setEditor({kind:'movement',product,direction});
@@ -85,7 +91,7 @@ export default function App(){
  const productById=new Map(products.map(p=>[p.id,p]));
  const supplierById=new Map(suppliers.map(s=>[s.id,s]));
  const marginLabel=(p:Product)=>{const pct=productMargin(Math.round(p.cost*100),Math.round(p.price*100)).marginPct;return pct===null?'':' · margem '+pct.toLocaleString('pt-BR')+'%';};
- const sidebar=navItems.map(({key,label,Icon})=><button key={key} className={page===key?'active':''} aria-current={page===key?'page':undefined} onClick={()=>navigate(key)}><Icon size={19}/><span>{label}</span></button>);
+ const sidebar=visibleNav.map(({key,label,Icon})=><button key={key} className={page===key?'active':''} aria-current={page===key?'page':undefined} onClick={()=>navigate(key)}><Icon size={19}/><span>{label}</span></button>);
 
  return <div className="shell">
    <aside>
@@ -112,7 +118,7 @@ export default function App(){
            <button type="button" onClick={()=>{navigate('customers');setEditor({kind:'party',table:'customers'});}}><div className="quick-icon"><Users size={19}/></div><span><strong>Novo cliente</strong><small>Cadastrar contato</small></span><ChevronRight size={18}/></button>
          </div></section>
          <div className="sync-caption">Última sincronização: {syncedAt?syncedAt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'carregando...'}</div>
-       </>:(page==='quotes'||page==='orders')?<CommercePages mode={page} products={products} customers={customers} onNotice={setToast}/>:<div className="content-page">
+       </>:page==='users'&&role==='admin'?<UsersPage onNotice={setToast}/>:(page==='quotes'||page==='orders')?<CommercePages mode={page} products={products} customers={customers} onNotice={setToast}/>:<div className="content-page">
          <div className="page-heading">
            <div><h2>{page==='products'?'Catálogo de produtos':page==='customers'?'Seus clientes':page==='suppliers'?'Rede de fornecedores':page==='moves'?'Controle de estoque':'Orçamentos'}</h2><p>{page==='products'?'Gerencie preços, categorias e quantidades.':page==='customers'?'Cadastre e organize seus contatos comerciais.':page==='suppliers'?'Tenha os dados dos seus parceiros à mão.':page==='moves'?'Registre cada entrada e saída com rastreabilidade.':'Em breve: crie propostas e transforme-as em pedidos.'}</p></div>
            {canCreate&&<button className="button-primary add-button" type="button" onClick={create}><Plus size={18}/><span>{page==='products'?'Novo produto':page==='customers'?'Novo cliente':'Novo fornecedor'}</span></button>}
@@ -149,7 +155,7 @@ export default function App(){
      </main>
      <footer>Vetor Hub · Gestão conectada ao Supabase</footer>
    </div>
-   <nav className="bottom-nav" aria-label="Navegação mobile">{navItems.map(({key,label,Icon})=><button type="button" key={key} className={page===key?'active':''} aria-current={page===key?'page':undefined} onClick={()=>navigate(key)}><Icon size={20}/><span>{label}</span></button>)}</nav>
+   <nav className="bottom-nav" aria-label="Navegação mobile">{visibleNav.map(({key,label,Icon})=><button type="button" key={key} className={page===key?'active':''} aria-current={page===key?'page':undefined} onClick={()=>navigate(key)}><Icon size={20}/><span>{label}</span></button>)}</nav>
    {archiveTarget&&<div className="archive-overlay"><section className="archive-dialog" role="alertdialog" aria-modal="true" aria-labelledby="archive-title" aria-describedby="archive-desc"><h2 id="archive-title">{archiveTarget.archived?'Restaurar cadastro?':'Arquivar cadastro?'}</h2><p id="archive-desc">{archiveTarget.name}</p><p>{archiveTarget.archived?'O cadastro voltará à lista de ativos.':'O cadastro será ocultado, mas seu histórico será preservado.'}</p><div className="archive-actions"><button className="button-secondary" type="button" disabled={archiveBusy} onClick={()=>setArchiveTarget(null)}>Cancelar</button><button className="button-primary" type="button" disabled={archiveBusy} onClick={()=>void archiveRecord()}>{archiveBusy?'Salvando…':archiveTarget.archived?'Restaurar':'Confirmar arquivamento'}</button></div></section></div>}
    {editor&&<RecordEditor key={editorKey} target={editor} suppliers={suppliers.filter(p=>!p.archivedAt)} onClose={()=>setEditor(null)} onSaved={saved}/>}
  </div>;

@@ -46,10 +46,10 @@ test('nega acesso a usuário autenticado sem autorização',async({page})=>{
 test('recuperação de senha não requer login',async({page})=>{
  const mock=await mockBackend(page);
  await page.goto('/');
- await page.getByRole('button',{name:'Primeiro acesso / Esqueci minha senha'}).click();
+ await page.getByRole('button',{name:'Esqueci minha senha'}).click();
  await page.getByLabel('E-mail').fill('test@example.com');
  await page.getByRole('button',{name:'Enviar link'}).click();
- await expect(page.getByText('Confira seu e-mail para definir sua senha.')).toBeVisible();
+ await expect(page.getByText('Se o e-mail estiver cadastrado, enviaremos um link para definir sua senha.')).toBeVisible();
  expect(mock.calls.some(c=>c.path==='/auth/v1/recover')).toBe(true);
 });
 
