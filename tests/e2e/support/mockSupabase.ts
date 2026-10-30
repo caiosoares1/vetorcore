@@ -176,3 +176,17 @@ export const seededCustomer=(id='b0000000-0000-4000-8000-000000000001',name='Mer
 export const seededSupplier=(id='c0000000-0000-4000-8000-000000000001',name='Fornecedor Sul'):Row=>({
  id,name,doc:'',phone:'',email:'',category:'Embalagens',archived_at:null
 });
+
+/** Abre uma página pela navegação; no celular, as menos usadas ficam no menu "Mais". */
+export async function openPage(page:Page,name:string){
+ // Espera a navegação do layout atual (só a visível entra em getByRole).
+ await page.getByRole('navigation',{name:/^Navegação (principal|mobile)$/}).first().waitFor();
+ const target=page.getByRole('button',{name,exact:true});
+ if(!(await target.first().isVisible()))await page.getByRole('navigation',{name:'Navegação mobile'}).getByRole('button',{name:'Mais'}).click();
+ await page.getByRole('button',{name,exact:true}).first().click();
+}
+/** Sai da conta pelo menu do usuário no cabeçalho. */
+export async function signOut(page:Page){
+ await page.getByRole('button',{name:'Menu da conta'}).click();
+ await page.getByRole('menuitem',{name:'Sair da conta'}).click();
+}

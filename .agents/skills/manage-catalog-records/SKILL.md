@@ -15,7 +15,7 @@ description: "Usar ao adicionar, editar ou arquivar campos, formulários ou regr
 2. Para cadastro/edição, seguir chamadas existentes `supabase.from(table).insert(...)` ou `.update(...).eq(...).select('id').single()`; não adicionar endpoint HTTP fictício.
 3. Colocar normalização/validação reutilizável em `src/lib/domain.ts` (`productPayload` ou `partyPayload`). Usar `errorMessage` para resposta de erro de API.
 4. Se alterar dados exibidos, ajustar as seleções e mapeamentos em `App.tsx`. Manter o filtro `archived_at`, as ações de arquivar/restaurar e os indicadores que ignoram arquivados.
-5. Manter formulários em `RecordEditor` e a apresentação via `EditorSheet`: drawer no desktop, tela cheia no mobile.
+5. Manter formulários em `RecordEditor` e a apresentação via `Sheet` (`src/components/ui/overlays.tsx`): drawer no desktop, tela cheia no mobile.
 6. Atualizar casos de caminho feliz, validação e erro em `tests/domain.test.mjs`, `tests/e2e/full-flow.spec.ts` e, se necessário, `tests/e2e/support/mockSupabase.ts`.
 7. Executar `npm run test:coverage`, `npm run build` e `npm run test:e2e`; registrar limitações reais.
 

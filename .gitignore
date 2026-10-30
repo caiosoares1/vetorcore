@@ -6,3 +6,8 @@ dist/
 .DS_Store
 *.log
 supabase/.temp/
+test-results/
+playwright-report/
+*.tsbuildinfo
+# O projeto não versiona lockfile (ver AGENTS.md).
+package-lock.json

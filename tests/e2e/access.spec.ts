@@ -1,9 +1,9 @@
 import {test,expect,type Page} from '@playwright/test';
-import {mockBackend,loginAsMockUser,validInviteCode} from './support/mockSupabase';
+import {mockBackend,loginAsMockUser,validInviteCode,openPage} from './support/mockSupabase';
 
 const strong='Caixa-Kraft-2026';
 async function openUsers(page:Page){
- await page.getByRole('button',{name:'Usuários',exact:true}).first().click();
+ await openPage(page,'Usuários');
  await expect(page.getByRole('heading',{name:'Usuários e convites'})).toBeVisible();
 }
 

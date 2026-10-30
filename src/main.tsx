@@ -2,10 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import AuthGate from './AuthGate';
-import './style.css';
-import './editor.css';
-import './commerce.css';
-import './dark.css';
+import './index.css';
 import { initTheme } from './theme';
 import { registerSW } from 'virtual:pwa-register';
 

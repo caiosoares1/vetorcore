@@ -20,7 +20,7 @@ test('alterna entre claro e escuro e lembra a escolha após recarregar',async({p
  expect(await theme(page)).toBe('light');
  await page.locator('header').getByRole('button',{name:'Ativar tema escuro'}).click();
  expect(await theme(page)).toBe('dark');
- await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#1d1f22');
+ await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#0e0f1a');
  await page.reload();
  expect(await theme(page)).toBe('dark');
  // A escolha salva vale mesmo que o aparelho esteja em claro.
