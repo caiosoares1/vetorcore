@@ -19,6 +19,7 @@ A suíte é executada no GitHub Actions em cada push e pull request para `main`.
 - **Pessoas:** cadastrar/editar clientes e fornecedores, dados de contato e e-mail.
 - **Estoque:** entradas, saídas, saldo atualizado, histórico, limite de estoque, rejeição de saldo negativo e quantidades inválidas.
 - **Arquivamento:** ocultar, restaurar, manter histórico, impedir operação com registros inativos (na camada SQL).
+- **Calculadora de sacolas:** `tests/bag-pricing.test.mjs` reproduz exatamente os 340 preços da planilha 2026 e cobre espessura, R$/kg, cores, margem, lotes e quantidades fora do lote; `tests/e2e/calculator.spec.ts` cobre a tela.
 - **Orçamentos:** seleção de cliente/produtos, quantidades, descontos, recusa de duplicados/arquivados, status e geração de PDF.
 - **Pedidos:** conversão somente após aprovação, bloqueio de duplicações (SQL), total, conclusão.
 - **Dashboard:** indicadores e exclusão de produtos arquivados.
