@@ -2,6 +2,7 @@
 -- Aplicar sobre o estado atual do banco (0001 + snapshot + 0002 + 0003), SOMENTE após revisão e teste em ambiente
 -- isolado (BEGIN ... ROLLBACK). Não aplicar automaticamente em produção.
 -- O frontend lê bag_pricing_settings e quote_items.line_total_cents: aplicar esta migration ANTES de publicar o frontend.
+-- Aplicada em produção em 30/10/2026 (supabase_migrations: 20261030202039 bag_pricing_and_custom_quote_items).
 -- Ver docs/decisions/0008-custos-e-itens-personalizados.md. Rollback: bloco comentado no fim do arquivo.
 
 begin;

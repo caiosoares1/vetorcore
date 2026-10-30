@@ -1,6 +1,6 @@
 # ADR-0008 — Custos de sacola no banco e itens personalizados no orçamento
 
-- **Estado:** Proposto (migration `0004_bag_pricing_and_custom_quote_items.sql` ainda precisa ser aplicada no Supabase)
+- **Estado:** Aceito — migration 0004 aplicada no Supabase de produção em 30/10/2026 (versão `20261030202039`)
 - **Data:** 2026-10-30
 - **Escopo:** `supabase/migrations/0004_*.sql`, `scripts/sql/test_0004.sql`, `src/lib/bagPricing.ts`, `src/lib/quoteMath.ts`, `src/lib/domain.ts`, `src/components/BagCalculator.tsx`, `src/components/CommercePages.tsx`
 - **Relacionado:** ADR-0007 (calculadora), ADR-0005 (papéis admin/member), ADR-0004 (arquivamento)
