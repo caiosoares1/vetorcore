@@ -16,5 +16,4 @@ O preço de sacolas impressas era calculado numa planilha: impressão por mil (m
 5. **Sem banco nesta etapa:** o R$/kg vem da lista de referência, de `suppliers.price_per_kg_cents` ou é digitado; custos e margem podem ser ajustados na tela só para a simulação.
 
 ## Consequências
-- Mudança de custo (ex.: tinta) ou de R$/kg hoje é feita alterando as constantes de `bagPricing.ts` (e um deploy); guardar esses parâmetros no banco, editáveis pela tela, fica para uma próxima etapa.
-- Levar o preço calculado para um orçamento exige alterar `create_quote_with_items` (hoje só aceita produtos do catálogo) — mudança de banco a ser tratada em ADR próprio.
+- Custos editáveis pela tela e envio do preço ao orçamento: ver ADR-0008.

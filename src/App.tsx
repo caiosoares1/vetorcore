@@ -5,7 +5,7 @@ import RecordEditor,{type Product,type Party,type Movement,type EditorTarget} fr
 import CommercePages from './components/CommercePages';
 import UsersPage from './components/UsersPage';
 import Dashboard from './components/Dashboard';
-import BagCalculator from './components/BagCalculator';
+import BagCalculator,{type CalculatedLine} from './components/BagCalculator';
 import Shell,{type Page} from './components/Shell';
 import {HistoryRow,PartyRow,ProductRow,SearchBox} from './components/Records';
 import {Button} from './components/ui/button';
@@ -39,7 +39,8 @@ export default function App(){
  const [archiveBusy,setArchiveBusy]=useState(false);
  const [syncedAt,setSyncedAt]=useState<Date|null>(null);
  const [pendingQuote,setPendingQuote]=useState(false);
- const quoteHandled=useCallback(()=>setPendingQuote(false),[]);
+ const [pendingLine,setPendingLine]=useState<CalculatedLine|null>(null);
+ const quoteHandled=useCallback(()=>{setPendingQuote(false);setPendingLine(null);},[]);
 
  async function refresh(isManual=false){
    const client=supabase;
@@ -101,11 +102,11 @@ export default function App(){
      onNewProduct={()=>{navigate('products');setEditor({kind:'product'});}} onOpenStock={()=>navigate('moves')} onNewCustomer={()=>{navigate('customers');setEditor({kind:'party',table:'customers'});}}
      onNewQuote={()=>{navigate('quotes');setPendingQuote(true);}} onRestock={p=>move(p,'Entrada')} onSeeProducts={()=>{navigate('products');setLowOnly(true);}}/>;
  }else if(page==='calculator'){
-   content=<BagCalculator suppliers={suppliers} onNotice={setToast}/>;
+   content=<BagCalculator suppliers={suppliers} role={role} onNotice={setToast} onAddToQuote={line=>{navigate('quotes');setPendingLine(line);setPendingQuote(true);}}/>;
  }else if(page==='users'&&role==='admin'){
    content=<UsersPage onNotice={setToast}/>;
  }else if(page==='quotes'||page==='orders'){
-   content=<CommercePages key={page} mode={page} products={products} customers={customers} onNotice={setToast} startCreating={page==='quotes'&&pendingQuote} onCreateHandled={quoteHandled}/>;
+   content=<CommercePages key={page} mode={page} products={products} customers={customers} onNotice={setToast} startCreating={page==='quotes'&&pendingQuote} initialLine={pendingLine} onCreateHandled={quoteHandled}/>;
  }else{
    const productList=(page==='products'||page==='moves')&&<Card className="overflow-hidden">
      <CardHeader title={page==='products'?(showArchived?'Produtos arquivados':'Produtos cadastrados'):'Produtos disponíveis'} description={page==='moves'?'Escolha um produto para registrar entrada ou saída.':undefined} action={<span className="tabular text-xs font-semibold text-muted-foreground">{count(filtered.products.length,'registro','registros')}</span>}/>

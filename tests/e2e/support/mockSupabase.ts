@@ -2,7 +2,10 @@ import type {Page,Route} from '@playwright/test';
 
 type Row=Record<string,unknown>;
 type Entity='products'|'customers'|'suppliers'|'quotes'|'orders'|'stock_movements';
-type Options={invalidLogin?:boolean;unauthorized?:boolean;role?:'admin'|'member';initialProducts?:Row[];initialCustomers?:Row[];initialSuppliers?:Row[]};
+// pricingSettings: null simula banco sem a migration 0004 (tabela de custos ausente).
+type Options={invalidLogin?:boolean;unauthorized?:boolean;role?:'admin'|'member';initialProducts?:Row[];initialCustomers?:Row[];initialSuppliers?:Row[];pricingSettings?:Row|null};
+/** Custos de 2026, como semeados pela migration 0004. */
+export const defaultPricingSettings=():Row=>({labor_monthly_cents:350000,hours_per_thousand:'2.0000',ink_cents:14000,solvent_cents:100,energy_per_hour_cents:120,one_color_extra_cents:400,margin_pct:'35.00'});
 // Único código aceito pelo resgate simulado; não é segredo real.
 export const validInviteCode='1A2B-3C4D-5E6F-7A8B';
 const userId='11111111-1111-4111-8111-111111111111';
@@ -31,7 +34,8 @@ export async function mockBackend(page:Page,options:Options={}){
  let member:Row|null=options.unauthorized?null:{user_id:userId,role:options.role||'admin'};
  const members:Row[]=member?[{user_id:userId,email:user.email,role:member.role,created_at:'2026-01-01T00:00:00Z'},{user_id:'22222222-2222-4222-8222-222222222222',email:'ana@example.com',role:'member',created_at:'2026-02-01T00:00:00Z'}]:[];
  const invites:Row[]=[];
- const mock={store,calls,members,invites,failNext:(path:string)=>{failedRequest=path;}};
+ let pricing:Row|null=options.pricingSettings===undefined?defaultPricingSettings():options.pricingSettings;
+ const mock={store,calls,members,invites,get pricing(){return pricing;},failNext:(path:string)=>{failedRequest=path;}};
  await page.route('https://test.supabase.co/**',async(route:Route)=>{
   const request=route.request(),url=new URL(request.url()),path=url.pathname,method=request.method();
   const body=request.postDataJSON?.()??null;
@@ -47,6 +51,10 @@ export async function mockBackend(page:Page,options:Options={}){
   if(path==='/auth/v1/recover')return reply({});
   if(path==='/auth/v1/signup')return reply({...user,id:'33333333-3333-4333-8333-333333333333',email:(body as Row)?.email,identities:[],confirmation_sent_at:'2026-01-01T00:00:00Z'});
   if(path.includes('/rest/v1/app_members'))return reply(member);
+  if(path==='/rest/v1/bag_pricing_settings'){
+   if(!pricing)return route.fulfill(asResponse({code:'42P01',message:'relation "public.bag_pricing_settings" does not exist'},404));
+   return reply(pricing);
+  }
   const match=path.match(/^\/rest\/v1\/(products|customers|suppliers|quotes|orders|stock_movements)$/);
   if(match){
    const table=match[1] as Entity;
@@ -77,7 +85,7 @@ export async function mockBackend(page:Page,options:Options={}){
    const action=path.split('/').pop()!;
    const data=body as Row;
    const isAdmin=member?.role==='admin';
-   const adminOnly=['list_members','list_invite_codes','create_invite_code','revoke_invite_code','set_member_role','remove_member'];
+   const adminOnly=['list_members','list_invite_codes','create_invite_code','revoke_invite_code','set_member_role','remove_member','set_bag_pricing_settings'];
    if(adminOnly.includes(action)&&!isAdmin)return route.fulfill(failure('Apenas administradores podem gerenciar usuários',403));
    if(action==='redeem_invite_code'){
     if(member)return route.fulfill(failure('Esta conta já tem acesso'));
@@ -119,14 +127,20 @@ export async function mockBackend(page:Page,options:Options={}){
     store.stock_movements.unshift({id,product_id:p.id,delta:data.p_delta,kind:Number(data.p_delta)>0?'Entrada':'Saída',note:data.p_note,created_at:new Date().toISOString(),unit_cost_cents:data.p_unit_cost_cents??null,supplier_id:data.p_supplier_id??null});
     return reply(id);
    }
+   if(action==='set_bag_pricing_settings'){
+    if(!pricing)return route.fulfill(failure('function public.set_bag_pricing_settings does not exist',404));
+    pricing={labor_monthly_cents:data.p_labor_monthly_cents,hours_per_thousand:String(data.p_hours_per_thousand),ink_cents:data.p_ink_cents,solvent_cents:data.p_solvent_cents,energy_per_hour_cents:data.p_energy_per_hour_cents,one_color_extra_cents:data.p_one_color_extra_cents,margin_pct:String(data.p_margin_pct)};
+    return reply(null);
+   }
    if(action==='create_quote_with_items'){
-    const lines=data.p_items as {product_id:string;quantity:number}[];
+    const lines=data.p_items as ({product_id:string;quantity:number}|{description:string;quantity:number;line_total_cents:number})[];
     const customer=store.customers.find(x=>x.id===data.p_customer_id&&!x.archived_at);
     if(!customer)return route.fulfill(failure('Cliente inválido'));
     const quoteItems:Row[]=lines.map(x=>{
+     if('description' in x)return {id:nextId(),product_id:null,product_name:x.description,quantity:x.quantity,unit_price_cents:Math.round(x.line_total_cents/x.quantity),line_total_cents:x.line_total_cents};
      const product=store.products.find(p=>p.id===x.product_id&&!p.archived_at);
      if(!product)throw new Error('Produto de teste ausente');
-     return {id:nextId(),product_id:product.id,product_name:product.name,quantity:x.quantity,unit_price_cents:product.price_cents};
+     return {id:nextId(),product_id:product.id,product_name:product.name,quantity:x.quantity,unit_price_cents:product.price_cents,line_total_cents:null};
     });
     const id=nextId();
     store.quotes.push({id,quote_number:store.quotes.length+1,customer_id:customer.id,status:'Rascunho',discount_cents:data.p_discount_cents,notes:data.p_notes,created_at:new Date().toISOString(),delivery_date:data.p_delivery_date??null,freight_cents:data.p_freight_cents??0,payment_terms:data.p_payment_terms??'',quote_items:quoteItems});
@@ -143,7 +157,7 @@ export async function mockBackend(page:Page,options:Options={}){
     const quote=store.quotes.find(x=>x.id===data.p_quote_id);
     if(!quote||quote.status!=='Aprovado')return route.fulfill(failure('Aprovação necessária'));
     if(store.orders.some(x=>x.quote_id===quote.id))return route.fulfill(failure('Pedido duplicado'));
-    const subtotal=(quote.quote_items as Row[]).reduce((sum,item)=>sum+Number(item.unit_price_cents)*Number(item.quantity),0);
+    const subtotal=(quote.quote_items as Row[]).reduce((sum,item)=>sum+(item.line_total_cents==null?Number(item.unit_price_cents)*Number(item.quantity):Number(item.line_total_cents)),0);
     const id=nextId();
     store.orders.push({id,order_number:store.orders.length+1,quote_id:quote.id,customer_id:quote.customer_id,total_cents:subtotal-Number(quote.discount_cents)+Number(quote.freight_cents||0),status:'Em separação',created_at:new Date().toISOString()});
     return reply(id);

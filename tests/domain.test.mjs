@@ -160,3 +160,16 @@ test('orçamento inclui frete, entrega e forma de pagamento',()=>{
  assert.throws(()=>validateQuoteDraft('c1',[item()],'0',products,customers,{paymentTerms:'x'.repeat(501)}));
  assert.throws(()=>validateQuoteDraft('c1',[item()],'0',products,customers,{deliveryDate:'2020-01-01',today:'2026-10-29'}));
 });
+
+test('orçamento aceita sacola calculada como item personalizado',async()=>{
+ const {validateQuoteDraft}=await import('../src/lib/domain.ts');
+ const customers=[{id:'c1'}];const products=[{id:'p1',price:12}];
+ const draft=validateQuoteDraft('c1',[{description:'  Sacola   30x40 ',quantity:'700',lineTotalCents:86527},{productId:'p1',quantity:'3'}],'5,00',products,customers,{today:'2026-10-30'});
+ assert.deepEqual(draft.items,[{description:'Sacola 30x40',quantity:700,line_total_cents:86527},{product_id:'p1',quantity:3}]);
+ assert.throws(()=>validateQuoteDraft('c1',[{description:'X',quantity:'1',lineTotalCents:100}],'0',products,customers),/Descrição/);
+ assert.throws(()=>validateQuoteDraft('c1',[{description:'x'.repeat(201),quantity:'1',lineTotalCents:100}],'0',products,customers),/Descrição/);
+ for(const v of [0,-5,1.5,1e13])assert.throws(()=>validateQuoteDraft('c1',[{description:'Sacola',quantity:'1',lineTotalCents:v}],'0',products,customers),/Valor do item/);
+ assert.throws(()=>validateQuoteDraft('c1',[{description:'Sacola',quantity:'0',lineTotalCents:100}],'0',products,customers),/Quantidade/);
+ // Desconto considera o total exato da linha.
+ assert.throws(()=>validateQuoteDraft('c1',[{description:'Sacola',quantity:'700',lineTotalCents:86527}],'865,28',products,customers),/Desconto maior/);
+});

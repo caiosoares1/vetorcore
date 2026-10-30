@@ -130,3 +130,37 @@ export function bagQuote(input:BagQuoteInput):BagQuote{
   unitPrice,total,totalCents:Math.round(total*100)
  };
 }
+
+/** Custos e margem em uso (vindos do banco quando disponíveis; senão os padrões acima). */
+export type PricingSettings={costs:PrintCosts;margin:number};
+export const DEFAULT_SETTINGS:PricingSettings={costs:DEFAULT_PRINT_COSTS,margin:DEFAULT_MARGIN};
+/** Linha de public.bag_pricing_settings (valores monetários em centavos, margem em %; numeric chega como texto). */
+export type PricingSettingsRow={
+ labor_monthly_cents:number|string;hours_per_thousand:number|string;ink_cents:number|string;solvent_cents:number|string;
+ energy_per_hour_cents:number|string;one_color_extra_cents:number|string;margin_pct:number|string;
+};
+export function settingsFromRow(row:PricingSettingsRow):PricingSettings{
+ const n=(v:number|string,field:string)=>{const x=Number(v);if(!Number.isFinite(x)||x<0)throw new Error('Custo salvo inválido: '+field+'.');return x;};
+ return {
+  costs:{laborMonthly:n(row.labor_monthly_cents,'mão de obra')/100,hoursPerThousand:n(row.hours_per_thousand,'horas'),ink:n(row.ink_cents,'tinta')/100,
+   solvent:n(row.solvent_cents,'solvente')/100,energyPerHour:n(row.energy_per_hour_cents,'energia')/100,oneColorExtra:n(row.one_color_extra_cents,'adicional')/100},
+  margin:n(row.margin_pct,'margem')/100
+ };
+}
+/** Parâmetros da RPC set_bag_pricing_settings; recusa valores que o banco também recusaria. */
+export function settingsToRpc(settings:PricingSettings){
+ const {costs,margin}=settings;
+ const cents=(v:number,field:string)=>{const c=Math.round(v*100);if(!Number.isFinite(v)||c<0||c>100000000)throw new Error(field+' fora do limite.');return c;};
+ if(!Number.isFinite(costs.hoursPerThousand)||costs.hoursPerThousand<=0||costs.hoursPerThousand>100)throw new Error('Horas de máquina devem ser maiores que zero.');
+ if(!Number.isFinite(margin)||margin<0||margin>=1)throw new Error('Margem deve ser de 0% a menos de 100%.');
+ return {
+  p_labor_monthly_cents:cents(costs.laborMonthly,'Mão de obra'),p_hours_per_thousand:Math.round(costs.hoursPerThousand*10000)/10000,
+  p_ink_cents:cents(costs.ink,'Tinta'),p_solvent_cents:cents(costs.solvent,'Solvente'),p_energy_per_hour_cents:cents(costs.energyPerHour,'Energia'),
+  p_one_color_extra_cents:cents(costs.oneColorExtra,'Adicional'),p_margin_pct:Math.round(margin*10000)/100
+ };
+}
+/** Descrição do item de orçamento de uma sacola calculada. */
+export function bagLineDescription(input:{width:number;height:number;thickness:number;colors:number},model?:BagModel):string{
+ const fmt=(n:number,min:number,max:number)=>n.toLocaleString('pt-BR',{minimumFractionDigits:min,maximumFractionDigits:max});
+ return `Sacola ${model?model.toLowerCase().replace('alça c','alça C')+' ':''}${fmt(input.width,0,1)}x${fmt(input.height,0,1)} cm, ${fmt(input.thickness,3,4)} mm, ${input.colors} ${input.colors===1?'cor':'cores'}`;
+}

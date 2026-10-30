@@ -116,28 +116,36 @@ export function validateDeliveryDate(raw:string,today:string):string|null{
  return value;
 }
 
-export type QuoteDraftLine={productId:string;quantity:string};
+/** Linha de orçamento: produto do catálogo ou item personalizado (sacola calculada, com total exato da linha). */
+export type QuoteDraftLine={productId:string;quantity:string}|{description:string;quantity:string;lineTotalCents:number};
+export type QuoteRpcItem={product_id:string;quantity:number}|{description:string;quantity:number;line_total_cents:number};
 export type QuoteExtras={freight?:string;deliveryDate?:string;paymentTerms?:string;today?:string};
 export function validateQuoteDraft(customerId:string,lines:QuoteDraftLine[],discount:string,products:{id:string;price:number;archivedAt?:string|null}[],customers:{id:string;archivedAt?:string|null}[],extras:QuoteExtras={}){
  if(!customers.some(c=>c.id===customerId&&!c.archivedAt))throw new Error('Selecione um cliente ativo.');
  if(lines.length===0||lines.length>100)throw new Error('Informe de 1 a 100 itens.');
  const used=new Set<string>();
- const mapped=lines.map((line)=>{
+ const mapped=lines.map(line=>{
+  const quantity=positiveInteger(line.quantity,'Quantidade');
+  if(quantity>9999999)throw new Error('Quantidade acima do limite do orçamento.');
+  if('description' in line){
+   const description=line.description.trim().replace(/\s+/g,' ');
+   if(description.length<2||description.length>200)throw new Error('Descrição do item inválida.');
+   if(!Number.isSafeInteger(line.lineTotalCents)||line.lineTotalCents<=0||line.lineTotalCents>999999999999)throw new Error('Valor do item inválido.');
+   return {rpc:{description,quantity,line_total_cents:line.lineTotalCents} as QuoteRpcItem,price:{quantity,unitPriceCents:Math.round(line.lineTotalCents/quantity),lineTotalCents:line.lineTotalCents}};
+  }
   const product=products.find(p=>p.id===line.productId&&!p.archivedAt);
   if(!product)throw new Error('Selecione um produto ativo.');
   if(used.has(product.id))throw new Error('Um produto não pode aparecer duas vezes no mesmo orçamento.');
   used.add(product.id);
-  const quantity=positiveInteger(line.quantity,'Quantidade');
-  if(quantity>9999999)throw new Error('Quantidade acima do limite do orçamento.');
-  return {product_id:product.id,quantity,unitPriceCents:Math.round(product.price*100)};
+  return {rpc:{product_id:product.id,quantity} as QuoteRpcItem,price:{quantity,unitPriceCents:Math.round(product.price*100)}};
  });
  const discountCents=toCents(discount);
  const freightCents=optionalCents(extras.freight)??0;
  const paymentTerms=(extras.paymentTerms||'').trim();
  if(paymentTerms.length>500)throw new Error('Forma de pagamento muito longa.');
  const deliveryDate=validateDeliveryDate(extras.deliveryDate||'',extras.today||new Date().toISOString().slice(0,10));
- quoteTotals(mapped.map(x=>({quantity:x.quantity,unitPriceCents:x.unitPriceCents})),discountCents,freightCents);
- return {customerId,items:mapped.map(x=>({product_id:x.product_id,quantity:x.quantity})),discountCents,freightCents,deliveryDate,paymentTerms};
+ quoteTotals(mapped.map(x=>x.price),discountCents,freightCents);
+ return {customerId,items:mapped.map(x=>x.rpc),discountCents,freightCents,deliveryDate,paymentTerms};
 }
 
 export function quoteCanBecomeOrder(status:string,alreadyConverted:boolean):boolean {
