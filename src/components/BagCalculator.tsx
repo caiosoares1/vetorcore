@@ -4,7 +4,7 @@ import type {Party} from './RecordEditor';
 import {Button} from './ui/button';
 import {Badge,Card,CardHeader,Segmented} from './ui/display';
 import {Field,Input,MoneyInput,NativeSelect,SectionTitle} from './ui/form';
-import {BAG_PRESETS,DEFAULT_MARGIN,DEFAULT_PRINT_COSTS,LOT_SIZES,MAX_COLORS,bagQuote,type PrintCosts} from '../lib/bagPricing';
+import {BAG_PRESETS,DEFAULT_MARGIN,DEFAULT_MATERIAL_SUPPLIER,DEFAULT_PRINT_COSTS,LOT_SIZES,MATERIAL_SUPPLIERS,MAX_COLORS,bagQuote,type PrintCosts} from '../lib/bagPricing';
 import {errorMessage} from '../lib/domain';
 import {cn} from '../lib/utils';
 
@@ -41,7 +41,7 @@ export default function BagCalculator({suppliers,onNotice}:{suppliers:Party[];on
  const[height,setHeight]=useState('40');
  const[thickness,setThickness]=useState('0,011');
  const priced=suppliers.filter(s=>!s.archivedAt&&s.pricePerKg!=null);
- const[supplierId,setSupplierId]=useState(MANUAL);
+ const[supplierId,setSupplierId]=useState('ref:'+DEFAULT_MATERIAL_SUPPLIER);
  const[manualKg,setManualKg]=useState('40,00');
  const[colors,setColors]=useState('1');
  const[quantity,setQuantity]=useState('1000');
@@ -54,7 +54,10 @@ export default function BagCalculator({suppliers,onNotice}:{suppliers:Party[];on
   const p=BAG_PRESETS.find(x=>x.id===id);
   if(p){setWidth(String(p.width));setHeight(String(p.height));setThickness(p.thickness.toFixed(3).replace('.',','));}
  }
- const supplier=priced.find(s=>s.id===supplierId);
+ // Fornecedor escolhido: referência do código (ref:…), cadastro do app (id) ou valor digitado.
+ const reference=MATERIAL_SUPPLIERS.find(s=>'ref:'+s.id===supplierId);
+ const registered=priced.find(s=>s.id===supplierId);
+ const supplier=reference?{name:reference.name,pricePerKg:reference.pricePerKg as number,source:'referência'}:registered?{name:registered.name,pricePerKg:registered.pricePerKg!,source:'cadastro'}:null;
  const changedCosts=COST_FIELDS.some(f=>costText[f.key]!==dec(DEFAULT_PRINT_COSTS[f.key]))||margin!==dec(DEFAULT_MARGIN*100);
 
  const result=useMemo(()=>{
@@ -81,7 +84,7 @@ export default function BagCalculator({suppliers,onNotice}:{suppliers:Party[];on
  return <div className="grid gap-5 pb-20 lg:grid-cols-[minmax(0,1fr)_minmax(320px,400px)] lg:items-start lg:pb-0">
   <div className="min-w-0 space-y-4">
    <section className={section}>
-    <SectionTitle icon={<Ruler/>} description="Os tamanhos da tabela 2026 já vêm com a espessura usada no cálculo.">Sacola</SectionTitle>
+    <SectionTitle icon={<Ruler/>} description="Os tamanhos padrão já vêm com a espessura de referência.">Sacola</SectionTitle>
     <Field id="calc-size" label="Tamanho">
      <NativeSelect id="calc-size" value={presetId} onChange={e=>choosePreset(e.target.value)}>
       {(['Alça C / boca de palhaço','Camiseta'] as const).map(model=><optgroup key={model} label={model}>{BAG_PRESETS.filter(p=>p.model===model).map(p=><option key={p.id} value={p.id}>{p.width} × {p.height} cm</option>)}</optgroup>)}
@@ -92,7 +95,7 @@ export default function BagCalculator({suppliers,onNotice}:{suppliers:Party[];on
      <Field id="calc-width" label="Largura (cm)"><Input id="calc-width" className="tabular" inputMode="decimal" value={width} onChange={e=>setWidth(e.target.value)}/></Field>
      <Field id="calc-height" label="Altura (cm)"><Input id="calc-height" className="tabular" inputMode="decimal" value={height} onChange={e=>setHeight(e.target.value)}/></Field>
     </div>}
-    <Field id="calc-thickness" label="Espessura (mm)" help={preset?`Na tabela, este tamanho foi calculado com ${dec(preset.thickness)} mm. A espessura varia por fornecedor (normal 0,010; até 0,012).`:'Normal 0,010 mm; pode chegar a 0,011 ou 0,012 conforme o fornecedor.'}>
+    <Field id="calc-thickness" label="Espessura (mm)" help={preset?`Referência deste tamanho: ${dec(preset.thickness)} mm. A espessura varia por fornecedor (normal 0,010; até 0,012).`:'Normal 0,010 mm; pode chegar a 0,011 ou 0,012 conforme o fornecedor.'}>
      <div className="flex flex-wrap gap-2">
       <Input id="calc-thickness" className="tabular w-28" inputMode="decimal" value={thickness} onChange={e=>setThickness(e.target.value)}/>
       {['0,010','0,011','0,012'].map(t=><Button key={t} variant="outline" size="sm" className={cn('h-10 tabular',thickness===t&&'border-brand bg-brand-soft text-brand hover:bg-brand-soft hover:text-brand')} aria-pressed={thickness===t} onClick={()=>setThickness(t)}>{t}</Button>)}
@@ -101,19 +104,20 @@ export default function BagCalculator({suppliers,onNotice}:{suppliers:Party[];on
    </section>
 
    <section className={section}>
-    <SectionTitle icon={<Truck/>} description="O preço do kg vem do cadastro do fornecedor ou pode ser informado.">Material</SectionTitle>
+    <SectionTitle icon={<Truck/>} description="Escolha o fornecedor do material ou informe o preço do kg.">Material</SectionTitle>
     <div className="grid gap-4 sm:grid-cols-2">
      <Field id="calc-supplier" label="Fornecedor">
       <NativeSelect id="calc-supplier" value={supplierId} onChange={e=>setSupplierId(e.target.value)}>
-       <option value={MANUAL}>Informar preço do kg</option>
-       {priced.map(s=><option key={s.id} value={s.id}>{s.name} — {brl(s.pricePerKg!)}/kg</option>)}
+       <optgroup label="Preço de referência">{MATERIAL_SUPPLIERS.map(s=><option key={s.id} value={'ref:'+s.id}>{s.name} — {brl(s.pricePerKg)}/kg</option>)}</optgroup>
+       {priced.length>0&&<optgroup label="Fornecedores cadastrados">{priced.map(s=><option key={s.id} value={s.id}>{s.name} — {brl(s.pricePerKg!)}/kg</option>)}</optgroup>}
+       <option value={MANUAL}>Informar preço do kg…</option>
       </NativeSelect>
      </Field>
      {supplierId===MANUAL
       ?<Field id="calc-kg" label="Preço do kg (R$)"><MoneyInput id="calc-kg" value={manualKg} onChange={e=>setManualKg(e.target.value)}/></Field>
-      :<div className="flex flex-col justify-end"><p className="rounded-lg bg-muted px-3 py-2.5 text-sm text-muted-foreground">Usando <b className="text-foreground">{brl(supplier?.pricePerKg??0)}/kg</b> do cadastro.</p></div>}
+      :<div className="flex flex-col justify-end"><p className="rounded-lg bg-muted px-3 py-2.5 text-sm text-muted-foreground">Usando <b className="text-foreground">{brl(supplier?.pricePerKg??0)}/kg</b> ({supplier?.source}).</p></div>}
     </div>
-    {!priced.length&&<p className="-mt-1 text-xs text-muted-foreground">Dica: informe o “Preço por kg” no cadastro do fornecedor para escolhê-lo aqui. A tabela 2026 usa R$ 40,00/kg.</p>}
+    {!priced.length&&<p className="-mt-1 text-xs text-muted-foreground">Dica: informe o “Preço por kg” no cadastro do fornecedor para ele aparecer aqui com o preço atualizado.</p>}
    </section>
 
    <section className={section}>
@@ -133,7 +137,7 @@ export default function BagCalculator({suppliers,onNotice}:{suppliers:Party[];on
    <section className="rounded-xl border border-border bg-card shadow-card">
     <button type="button" aria-expanded={showCosts} onClick={()=>setShowCosts(v=>!v)} className="flex w-full items-center gap-3 p-4 text-left sm:p-5">
      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand"><Settings2 className="size-4"/></span>
-     <span className="min-w-0 flex-1"><span className="block text-sm font-bold text-foreground">Custos e margem</span><span className="block text-xs text-muted-foreground">{changedCosts?'Valores ajustados nesta simulação.':'Valores da planilha 2026.'}</span></span>
+     <span className="min-w-0 flex-1"><span className="block text-sm font-bold text-foreground">Custos e margem</span><span className="block text-xs text-muted-foreground">{changedCosts?'Valores ajustados nesta simulação.':'Valores atuais do sistema.'}</span></span>
      {changedCosts&&<Badge variant="orange">Ajustado</Badge>}
      <span className="text-xs font-semibold text-brand">{showCosts?'Ocultar':'Ajustar'}</span>
     </button>
@@ -146,7 +150,7 @@ export default function BagCalculator({suppliers,onNotice}:{suppliers:Party[];on
      </div>
      <div className="flex flex-wrap items-center justify-between gap-2">
       <p className="text-xs text-muted-foreground">Os ajustes valem só para esta simulação.</p>
-      <Button variant="outline" size="sm" disabled={!changedCosts} onClick={()=>{setCostText(defaultCostText());setMargin(dec(DEFAULT_MARGIN*100));}}><RotateCcw/>Voltar aos valores da planilha</Button>
+      <Button variant="outline" size="sm" disabled={!changedCosts} onClick={()=>{setCostText(defaultCostText());setMargin(dec(DEFAULT_MARGIN*100));}}><RotateCcw/>Voltar aos valores padrão</Button>
      </div>
     </div>}
    </section>
@@ -164,10 +168,10 @@ export default function BagCalculator({suppliers,onNotice}:{suppliers:Party[];on
     </div>
     {result.ok?<div className="p-5">
      <p className="calc-rule rounded-lg bg-muted px-3 py-2.5 text-[13px] text-muted-foreground">
-      {result.quote.appliedLot===result.input.quantity?<>Preço do {lotName(result.quote.appliedLot)} da tabela.</>
+      {result.quote.appliedLot===result.input.quantity?<>Preço do {lotName(result.quote.appliedLot)}.</>
        :<>Preço do {lotName(result.quote.appliedLot)} ÷ {num(result.quote.appliedLot)} × {num(result.input.quantity)}.</>}
      </p>
-     {result.quote.belowMinimumLot&&<p className="mt-3 flex gap-2 rounded-lg border border-warning/30 bg-warning-soft px-3 py-2.5 text-[13px] text-warning"><AlertTriangle className="mt-0.5 size-4 shrink-0"/>Abaixo do menor lote da tabela (60 un.). O valor usa o preço unitário do lote de 60.</p>}
+     {result.quote.belowMinimumLot&&<p className="mt-3 flex gap-2 rounded-lg border border-warning/30 bg-warning-soft px-3 py-2.5 text-[13px] text-warning"><AlertTriangle className="mt-0.5 size-4 shrink-0"/>Abaixo do menor lote (60 un.). O valor usa o preço unitário do lote de 60.</p>}
      <div className="mt-3 divide-y divide-border">
       <Row label="Peso" value={num(result.quote.kgPerThousand,2)+' kg por mil'}/>
       <Row label={`Impressão (${result.input.colors} ${result.input.colors===1?'cor':'cores'}) por mil`} value={brl(result.quote.printPerThousand)}/>

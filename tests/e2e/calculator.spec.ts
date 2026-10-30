@@ -10,13 +10,13 @@ async function openCalculator(page:Page,options:Parameters<typeof mockBackend>[1
  await expect(page.getByRole('heading',{name:'Calculadora de sacolas'})).toBeVisible();
 }
 
-test('calcula como a planilha: milheiro, quantidade fora do lote e espessura',async({page})=>{
+test('calcula milheiro, quantidade fora do lote e espessura',async({page})=>{
  await openCalculator(page);
- // Padrão: Alça C 30x40, espessura da tabela (0,011), R$ 40/kg, 1 cor, 1.000 un.
+ // Padrão: Alça C 30x40, espessura de referência (0,011), 2 IRMÃO a R$ 40/kg, 1 cor, 1.000 un.
  await expect(page.getByLabel('Tamanho')).toHaveValue('alc-30x40');
  await expect(page.getByLabel('Espessura (mm)')).toHaveValue('0,011');
  await expect(total(page)).toHaveText('R$ 988,87');
- await expect(page.locator('.calc-rule')).toContainText('milheiro da tabela');
+ await expect(page.locator('.calc-rule')).toContainText('Preço do milheiro.');
  // 700 un. = lote de 500 ÷ 500 × 700
  await page.getByLabel('Quantidade (unidades)').fill('700');
  await expect(total(page)).toHaveText('R$ 865,27');
@@ -30,7 +30,17 @@ test('calcula como a planilha: milheiro, quantidade fora do lote e espessura',as
  await expect(total(page)).toHaveText('R$ 915,03');
 });
 
-test('usa o preço do kg do fornecedor e o número de cores',async({page})=>{
+test('fornecedores de referência e preço digitado',async({page})=>{
+ await openCalculator(page);
+ await expect(page.getByLabel('Fornecedor')).toHaveValue('ref:2irmao');
+ await page.getByLabel('Fornecedor').selectOption({label:'TOTAL MAIS — R$ 35,00/kg'});
+ await expect(total(page)).toHaveText('R$ 887,34');
+ await page.getByLabel('Fornecedor').selectOption({label:'Informar preço do kg…'});
+ await page.getByLabel('Preço do kg (R$)').fill('43,00');
+ await expect(total(page)).toHaveText('R$ 1.049,80');
+});
+
+test('usa o preço do kg do fornecedor cadastrado e o número de cores',async({page})=>{
  await openCalculator(page,{initialSuppliers:[{...seededSupplier(),name:'Tecnoplast',price_per_kg_cents:4300}]});
  await page.getByLabel('Fornecedor').selectOption({label:'Tecnoplast — R$ 43,00/kg'});
  await expect(total(page)).toHaveText('R$ 1.049,80');
@@ -49,7 +59,7 @@ test('valores inválidos mostram erro em vez de preço',async({page})=>{
  await page.getByLabel('Quantidade (unidades)').fill('0');
  await expect(page.locator('.calc-error')).toContainText('Quantidade');
  await page.getByLabel('Quantidade (unidades)').fill('30');
- await expect(page.getByText('Abaixo do menor lote da tabela')).toBeVisible();
+ await expect(page.getByText('Abaixo do menor lote')).toBeVisible();
 });
 
 test('outro tamanho e ajuste de custos recalculam e podem voltar à planilha',async({page})=>{
@@ -61,6 +71,6 @@ test('outro tamanho e ajuste de custos recalculam e podem voltar à planilha',as
  await page.getByRole('button',{name:/Custos e margem/}).click();
  await page.getByLabel('Margem sobre o material (%)').fill('0');
  await expect(total(page)).not.toHaveText('R$ 988,87');
- await page.getByRole('button',{name:'Voltar aos valores da planilha'}).click();
+ await page.getByRole('button',{name:'Voltar aos valores padrão'}).click();
  await expect(total(page)).toHaveText('R$ 988,87');
 });
