@@ -71,9 +71,19 @@ Preços para **1.000 unidades** (R$):
 Os demais lotes (500, 250, 125 e 60 unidades) estão no CSV.
 
 ## Espessura
-**Os preços finais estão corretos** (confirmado com a operação). A espessura **varia conforme o fornecedor**: o normal é **0,010 mm**, podendo chegar a **0,011 ou 0,012 mm**. Por isso a espessura não define o preço desta tabela; ela é uma característica da compra (produto/fornecedor), e o app já guarda isso em `products.thickness_mm`.
+**Os preços finais estão corretos** (confirmado com a operação) para a espessura usada em cada linha. A espessura **muda o preço**: ela define o peso (largura × altura × espessura), e o peso × R$/kg é o custo do material. O normal é **0,010 mm**, mas pode ser **0,011 ou 0,012 mm** conforme o fornecedor.
 
-A coluna `espessura_referencia_mm` do CSV é a espessura usada na fórmula de peso de cada linha (Plan2, coluna B), mantida só como referência de como o preço foi calculado. As colunas "ESPESSURA" exibidas na planilha nem sempre coincidem com ela (ex.: Alça C 30x40 exibe 0,01 e a fórmula usa 0,011; camisetas exibem 0,005 e várias usam 0,006); isso não altera os preços.
+Exemplo, Alça C 30x40, 1 cor, 1.000 unidades, R$ 40/kg:
+
+| Espessura | kg por mil | Material com margem | Preço final |
+|---|---|---|---|
+| 0,010 | 12,0 | R$ 738,46 | R$ 915,03 |
+| 0,011 | 13,2 | R$ 812,31 | R$ 988,87 (valor da planilha) |
+| 0,012 | 14,4 | R$ 886,15 | R$ 1.062,72 |
+
+Por isso os preços do CSV valem **só para a espessura da coluna `espessura_referencia_mm` e R$ 40/kg** (fornecedor 2 IRMÃO). Para outra espessura ou outro fornecedor, o preço deve ser recalculado pelas fórmulas acima.
+
+A coluna `espessura_referencia_mm` é a espessura usada na fórmula de peso (Plan2, coluna B). As colunas "ESPESSURA" exibidas na planilha nem sempre coincidem com ela (ex.: Alça C 30x40 exibe 0,01 e a fórmula usa 0,011; camisetas exibem 0,005 e várias usam 0,006).
 
 ## Outras observações sobre a planilha
 - Na Plan2, os tamanhos das camisetas 40x50, 40x60, 50x70, 60x80 e 45x60 aparecem como "BRANCA" na coluna de tamanho; o tamanho real vem da fórmula.
