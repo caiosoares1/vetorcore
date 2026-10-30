@@ -1,4 +1,4 @@
-modelo,tamanho_cm,espessura_mm,quantidade,cores,preco_lote_reais
+modelo,tamanho_cm,espessura_referencia_mm,quantidade,cores,preco_lote_reais
 Alça C / boca de palhaço,17x24,0.011,1000,1,452.75
 Alça C / boca de palhaço,17x24,0.011,1000,2,621.32
 Alça C / boca de palhaço,17x24,0.011,1000,3,793.88

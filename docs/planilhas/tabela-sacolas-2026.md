@@ -48,7 +48,7 @@ Preço do kg por fornecedor (Plan3 K30:L33), escolhido em Plan3 E2:
 
 Preços para **1.000 unidades** (R$):
 
-| Modelo | Tamanho (cm) | Espessura (mm) | 1 cor | 2 cores | 3 cores | 4 cores |
+| Modelo | Tamanho (cm) | Espessura de referência (mm) | 1 cor | 2 cores | 3 cores | 4 cores |
 |---|---|---|---|---|---|---|
 | Alça C | 17x24 | 0,011 | 452,75 | 621,32 | 793,88 | 966,45 |
 | Alça C | 15x25 | 0,01 | 407,34 | 575,90 | 748,47 | 921,04 |
@@ -70,21 +70,13 @@ Preços para **1.000 unidades** (R$):
 
 Os demais lotes (500, 250, 125 e 60 unidades) estão no CSV.
 
-## Divergências encontradas na planilha
-O cálculo usa a espessura **da fórmula de peso** (Plan2, coluna B); as colunas de "ESPESSURA" exibidas nem sempre batem com ela. O CSV e a tabela acima usam a espessura da fórmula.
+## Espessura
+**Os preços finais estão corretos** (confirmado com a operação). A espessura **varia conforme o fornecedor**: o normal é **0,010 mm**, podendo chegar a **0,011 ou 0,012 mm**. Por isso a espessura não define o preço desta tabela; ela é uma característica da compra (produto/fornecedor), e o app já guarda isso em `products.thickness_mm`.
 
-| Tamanho | Fórmula de peso | Plan2 "ESPESSURA" | Plan3 "ESPESSURA" |
-|---|---|---|---|
-| Alça C 17x24 | 0,011 | 0,011 | 0,01 |
-| Alça C 30x40 | 0,011 | 0,01 | 0,01 |
-| Alça C 45x60 | 0,01 | 0,01 | (vazio) |
-| Camiseta 30x32, 30x45, 40x50, 40x60 | 0,006 | 0,006 | 0,005 |
-| Camiseta 45x60 | 0,006 | 0,005 | 0,005 |
+A coluna `espessura_referencia_mm` do CSV é a espessura usada na fórmula de peso de cada linha (Plan2, coluna B), mantida só como referência de como o preço foi calculado. As colunas "ESPESSURA" exibidas na planilha nem sempre coincidem com ela (ex.: Alça C 30x40 exibe 0,01 e a fórmula usa 0,011; camisetas exibem 0,005 e várias usam 0,006); isso não altera os preços.
 
-Outros pontos:
+## Outras observações sobre a planilha
 - Na Plan2, os tamanhos das camisetas 40x50, 40x60, 50x70, 60x80 e 45x60 aparecem como "BRANCA" na coluna de tamanho; o tamanho real vem da fórmula.
-- Na Plan3, os rótulos de tamanho das colunas de 500/250/125 unidades não acompanham a coluna principal em algumas linhas (ex.: linha 10 mostra 30x45, 35x45 e 35X50; linha 17 mostra 30 X 45 e 30 X 40). Os valores seguem sempre a linha da coluna principal (C).
+- Na Plan3, os rótulos de tamanho das colunas de 500/250/125 unidades não acompanham a coluna principal em algumas linhas (ex.: linha 10 mostra 30x45, 35x45 e 35X50). Os valores seguem sempre a linha da coluna principal (C).
 - O custo de impressão de 2 a 4 cores não inclui o adicional de energia (R$ 4,00) que entra no de 1 cor.
 - Plan2 I4:M5 e Plan3 B25:J34 têm anotações avulsas (preços de compra e orçamentos comparativos) que não alimentam a tabela final.
-
-Vale confirmar com quem mantém a planilha qual espessura é a correta antes de usar esses preços em produção.
