@@ -33,3 +33,9 @@ export function quoteTotals(items:LinePrice[],discountCents:number,freightCents=
  return {subtotal,total};
 }
 export const fmtCents=(cents:number)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(cents/100);
+/** Valor unitário para exibição. Sacola calculada (total exato) pode ter mais de 2 casas: mostra até 4 (ex.: R$ 0,9889). */
+export function unitPriceLabel(item:LinePrice):string{
+ const total=lineTotal(item);
+ if(item.lineTotalCents==null||total%item.quantity===0)return fmtCents(item.lineTotalCents==null?item.unitPriceCents:total/item.quantity);
+ return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2,maximumFractionDigits:4}).format(total/item.quantity/100);
+}

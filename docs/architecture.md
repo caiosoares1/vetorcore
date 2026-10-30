@@ -39,7 +39,7 @@ Criação de conta e papéis (ADR-0005, migration `0003_member_access.sql`): qua
 
 ## Orçamentos, pedidos e PDF
 
-`CommercePages.tsx` lista `quotes` com `quote_items` e `orders`. `src/lib/domain.ts` valida clientes/produtos ativos, quantidades, descontos e duplicatas; `quoteMath.ts` manipula centavos. A criação é transacional no banco e congela os nomes/preços dos itens no orçamento. A proposta pode mudar de status; somente orçamento aprovado e ainda não convertido permite criar pedido. O pedido pode ser concluído. **Nenhum desses passos baixa o estoque automaticamente.** jsPDF gera o PDF no navegador, sem serviço de armazenamento externo.
+`CommercePages.tsx` lista `quotes` com `quote_items` e `orders`. `src/lib/domain.ts` valida clientes/produtos ativos, quantidades, descontos e duplicatas; `quoteMath.ts` manipula centavos. A criação é transacional no banco e congela os nomes/preços dos itens no orçamento. A proposta pode mudar de status; somente orçamento aprovado e ainda não convertido permite criar pedido. O pedido pode ser concluído. **Nenhum desses passos baixa o estoque automaticamente.** jsPDF gera o PDF no navegador, com os dados da Vetor (CNPJ, endereço, telefone) de `src/lib/company.ts`, valor unitário por item (até 4 casas para sacola calculada, `unitPriceLabel` em `quoteMath.ts`) e acentuação, sem serviço de armazenamento externo.
 
 ## Tema claro/escuro
 

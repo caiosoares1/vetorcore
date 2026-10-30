@@ -215,6 +215,11 @@ test('exporta PDF com nome esperado',async({page})=>{
  const pdf=await readFile(await download.path());
  expect(pdf.subarray(0,5).toString('ascii')).toBe('%PDF-');
  expect(pdf.length).toBeGreaterThan(1000);
+ // jsPDF grava o texto sem compressão, em WinAnsi (latin1): dá para conferir o conteúdo.
+ // Strings PDF escapam parênteses e barras com barra invertida; o espaço do R$ é não separável.
+ const text=pdf.toString('latin1').replace(/\u00a0/g,' ').replace(/\\([()\\])/g,'$1');
+ for(const expected of ['Orçamento #00001','Emissão:','CNPJ 15.421.462/0001-50','Telefone (83) 98887-9099','R. Francisco Marques da Fonseca','Valor unit.','R$ 12,00','R$ 36,00'])
+  expect(text,expected).toContain(expected);
 });
 
 test('produtos arquivados não podem ser selecionados em novos orçamentos',async({page})=>{

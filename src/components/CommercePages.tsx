@@ -7,7 +7,8 @@ import {Badge,Card,CardHeader,EmptyState,ListSkeleton,Segmented} from './ui/disp
 import {Field,FormError,Input,MoneyInput,NativeSelect,SectionTitle,Textarea} from './ui/form';
 import {ErrorBanner} from './ui/toast';
 import {SearchBox} from './Records';
-import {fmtCents,quoteTotals,toCents} from '../lib/quoteMath';
+import {fmtCents,quoteTotals,toCents,unitPriceLabel} from '../lib/quoteMath';
+import {COMPANY} from '../lib/company';
 import {validateQuoteDraft,quoteCanBecomeOrder,errorMessage} from '../lib/domain';
 import {cn} from '../lib/utils';
 import type {Party,Product} from './RecordEditor';
@@ -35,23 +36,27 @@ async function savePdf(q:Quote,customer?:Party){
  const {jsPDF}=await import('jspdf');
  const pdf=new jsPDF({unit:'mm',format:'a4'});
  let y=23;
- pdf.setFont('helvetica','bold');pdf.setFontSize(20);pdf.setTextColor(54,56,144);pdf.text('VETOR EMBALAGENS',18,y);
+ pdf.setFont('helvetica','bold');pdf.setFontSize(20);pdf.setTextColor(54,56,144);pdf.text(COMPANY.name,18,y);
  pdf.setDrawColor(255,134,43);pdf.setLineWidth(1.2);pdf.line(18,y+3,52,y+3);pdf.setLineWidth(0.2);
- y+=11;pdf.setFont('helvetica','normal');pdf.setFontSize(11);pdf.setTextColor(51,61,80);pdf.text('Orcamento '+quoteNumber(q.quote_number),18,y);
- y+=9;pdf.text('Emissao: '+shortDate(q.created_at),18,y);
+ // Dados da empresa à direita do nome, como no cabeçalho da aba PEDIDO.
+ pdf.setFont('helvetica','normal');pdf.setFontSize(9);pdf.setTextColor(102,112,133);
+ pdf.text(['CNPJ '+COMPANY.cnpj,COMPANY.address,'Telefone '+COMPANY.phone],192,y-6,{align:'right'});
+ y+=11;pdf.setFontSize(11);pdf.setTextColor(51,61,80);pdf.text('Orçamento '+quoteNumber(q.quote_number),18,y);
+ y+=9;pdf.text('Emissão: '+shortDate(q.created_at),18,y);
  if(q.delivery_date){y+=7;pdf.text('Entrega prevista: '+plainDate(q.delivery_date),18,y);}
  y+=8;pdf.text('Cliente: '+(customer?.name||'Cliente'),18,y);
  if(customer?.doc){y+=7;pdf.text('Documento: '+customer.doc,18,y);}
  if(customer?.phone){y+=7;pdf.text('Telefone: '+customer.phone,18,y);}
- if(customer?.address){const lines=pdf.splitTextToSize('Endereco: '+customer.address,174);y+=7;pdf.text(lines,18,y);y+=(lines.length-1)*5.5;}
- y+=14;pdf.setFont('helvetica','bold');pdf.text('Produto',18,y);pdf.text('Qtd.',117,y);pdf.text('Subtotal',153,y);y+=3;
+ if(customer?.address){const lines=pdf.splitTextToSize('Endereço: '+customer.address,174);y+=7;pdf.text(lines,18,y);y+=(lines.length-1)*5.5;}
+ y+=14;pdf.setFont('helvetica','bold');pdf.text('Produto',18,y);pdf.text('Qtd.',124,y,{align:'right'});pdf.text('Valor unit.',160,y,{align:'right'});pdf.text('Subtotal',192,y,{align:'right'});y+=3;
  pdf.setDrawColor(222,226,233);pdf.line(18,y,192,y);y+=7;
  pdf.setFont('helvetica','normal');
  for(const item of q.quote_items){
   if(y>256){pdf.addPage();y=22;}
-  const name=pdf.splitTextToSize(item.product_name,93);
-  pdf.text(name,18,y);pdf.text(String(item.quantity),119,y);
-  pdf.text(fmtCents(itemTotal(item)),153,y);
+  const name=pdf.splitTextToSize(item.product_name,88);
+  pdf.text(name,18,y);pdf.text(item.quantity.toLocaleString('pt-BR'),124,y,{align:'right'});
+  pdf.text(unitPriceLabel({quantity:item.quantity,unitPriceCents:item.unit_price_cents,lineTotalCents:item.line_total_cents}),160,y,{align:'right'});
+  pdf.text(fmtCents(itemTotal(item)),192,y,{align:'right'});
   y+=Math.max(9,name.length*5.5);
  }
  if(y>260){pdf.addPage();y=20;}
@@ -63,7 +68,7 @@ async function savePdf(q:Quote,customer?:Party){
  y+=1;pdf.setFont('helvetica','bold');pdf.setFontSize(14);pdf.setTextColor(54,56,144);pdf.text('Total: '+fmtCents(subtotal-q.discount_cents+(q.freight_cents||0)),18,y);y+=13;
  pdf.setFont('helvetica','normal');pdf.setFontSize(10);pdf.setTextColor(51,61,80);
  if(q.payment_terms){const lines=pdf.splitTextToSize('Forma de pagamento: '+q.payment_terms,168);pdf.text(lines,18,y);y+=lines.length*5+4;}
- if(q.notes){pdf.text(pdf.splitTextToSize('Observacoes: '+q.notes,168),18,y);}
+ if(q.notes){pdf.text(pdf.splitTextToSize('Observações: '+q.notes,168),18,y);}
  pdf.save('vetorcore-orcamento-'+q.quote_number+'.pdf');
 }
 

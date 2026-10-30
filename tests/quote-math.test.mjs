@@ -47,3 +47,17 @@ test('linha com total exato (sacola calculada) usa o total, não quantidade × u
  for(const bad of [-1,1.5,Number.MAX_SAFE_INTEGER+1])assert.throws(()=>lineTotal({quantity:1,unitPriceCents:1,lineTotalCents:bad}),/Item inválido/);
  assert.throws(()=>lineTotal({quantity:Number.MAX_SAFE_INTEGER,unitPriceCents:2}),/limite/);
 });
+
+test('valor unitário: produto do catálogo usa o preço em centavos',async()=>{
+ const {unitPriceLabel}=await import('../src/lib/quoteMath.ts');
+ assert.equal(unitPriceLabel({quantity:1000,unitPriceCents:42}),fmtCents(42));
+ assert.equal(unitPriceLabel({quantity:3,unitPriceCents:1200,lineTotalCents:null}),fmtCents(1200));
+});
+test('valor unitário: sacola calculada mostra até 4 casas quando não fecha em centavos',async()=>{
+ const {unitPriceLabel}=await import('../src/lib/quoteMath.ts');
+ const nbsp=s=>s.replace(/\s/g,' ');
+ assert.equal(nbsp(unitPriceLabel({quantity:1000,unitPriceCents:99,lineTotalCents:98887})),'R$ 0,9889');
+ assert.equal(nbsp(unitPriceLabel({quantity:500,unitPriceCents:150,lineTotalCents:75000})),'R$ 1,50');
+ assert.equal(nbsp(unitPriceLabel({quantity:3,unitPriceCents:33,lineTotalCents:100})),'R$ 0,3333');
+ assert.throws(()=>unitPriceLabel({quantity:0,unitPriceCents:1,lineTotalCents:1}));
+});
