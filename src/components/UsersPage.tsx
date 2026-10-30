@@ -1,13 +1,20 @@
 import {useEffect,useState,type FormEvent} from 'react';
-import {Copy,KeyRound,RefreshCw,ShieldCheck,UserRound} from 'lucide-react';
+import {Copy,KeyRound,Loader2,RefreshCw,ShieldCheck,Ticket,UserMinus,UserRound,Users} from 'lucide-react';
 import {supabase} from '../lib/supabase';
+import {Button} from './ui/button';
+import {Badge,Card,CardHeader,EmptyState,ListSkeleton} from './ui/display';
+import {Field,Input,NativeSelect} from './ui/form';
+import {ConfirmDialog} from './ui/overlays';
+import {ErrorBanner} from './ui/toast';
 import {errorMessage,inviteStatus,memberChangeBlock,type MemberRole} from '../lib/domain';
+import {cn} from '../lib/utils';
 
 type Member={user_id:string;email:string;role:MemberRole;created_at:string};
 type Invite={invite_id:string;role:MemberRole;note:string;created_at:string;expires_at:string;used_at:string|null;used_by_email:string|null;revoked_at:string|null};
 type Confirm={kind:'remove';member:Member}|{kind:'role';member:Member;next:MemberRole}|{kind:'revoke';invite:Invite};
 const roleLabel=(role:MemberRole)=>role==='admin'?'Administrador':'Membro';
 const when=(iso:string)=>new Date(iso).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+const inviteVariant={Ativo:'success',Usado:'default',Revogado:'destructive',Expirado:'neutral'} as const;
 
 export default function UsersPage({onNotice}:{onNotice:(message:string)=>void}){
  const[members,setMembers]=useState<Member[]>([]);
@@ -66,51 +73,58 @@ export default function UsersPage({onNotice}:{onNotice:(message:string)=>void}){
   finally{setBusy(false);}
  }
 
- const confirmText=confirm?confirm.kind==='revoke'?{title:'Revogar convite?',subject:confirm.invite.note||'Convite de '+roleLabel(confirm.invite.role),body:'O código deixará de funcionar imediatamente.',action:'Revogar'}
-  :confirm.kind==='remove'?{title:'Remover acesso?',subject:confirm.member.email,body:'A conta continua existindo, mas não verá mais nenhum dado. Para voltar, precisará de um novo convite.',action:'Remover acesso'}
-  :{title:'Alterar papel?',subject:confirm.member.email,body:confirm.next==='admin'?'Administradores podem convidar pessoas, alterar papéis e remover acessos.':'A conta deixará de gerenciar usuários, mas continua operando o sistema.',action:'Confirmar'}:null;
+ const confirmText=confirm?confirm.kind==='revoke'?{title:'Revogar convite?',subject:confirm.invite.note||'Convite de '+roleLabel(confirm.invite.role),body:'O código deixará de funcionar imediatamente.',action:'Revogar',destructive:true}
+  :confirm.kind==='remove'?{title:'Remover acesso?',subject:confirm.member.email,body:'A conta continua existindo, mas não verá mais nenhum dado. Para voltar, precisará de um novo convite.',action:'Remover acesso',destructive:true}
+  :{title:'Alterar papel?',subject:confirm.member.email,body:confirm.next==='admin'?'Administradores podem convidar pessoas, alterar papéis e remover acessos.':'A conta deixará de gerenciar usuários, mas continua operando o sistema.',action:'Confirmar',destructive:false}:null;
+ const activeInvites=invites.filter(i=>inviteStatus(i)==='Ativo').length;
 
- return <div className="content-page users-page">
-  <div className="page-heading"><div><h2>Usuários e convites</h2><p>Controle quem acessa o Vetor Hub. Novas contas só ganham acesso com um código de convite.</p></div>
-   <button title="Recarregar" type="button" className="button-icon" disabled={loading} onClick={()=>void refresh()}><RefreshCw size={17} className={loading?'spinning':''}/></button></div>
-  {error&&<div className="app-error" role="alert"><span>{error}</span></div>}
+ return <div className="users-page space-y-5">
+  <div className="flex items-center justify-between gap-3">
+   <div className="flex flex-wrap gap-2"><Badge variant="default"><Users/>{members.length} {members.length===1?'membro':'membros'}</Badge><Badge variant="success"><Ticket/>{activeInvites} {activeInvites===1?'convite ativo':'convites ativos'}</Badge></div>
+   <Button variant="outline" size="icon" title="Recarregar" aria-label="Recarregar" disabled={loading} onClick={()=>void refresh()}><RefreshCw className={loading?'spinning':''}/></Button>
+  </div>
+  <ErrorBanner message={error}/>
 
-  <section className="panel">
-   <div className="panel-heading"><h2>Convidar pessoa</h2><p>O código vale para uma única conta e expira no prazo escolhido.</p></div>
-   <form className="invite-form" onSubmit={createInvite}>
-    <label>Papel<select value={form.role} onChange={e=>setForm({...form,role:e.target.value as MemberRole})}><option value="member">Membro</option><option value="admin">Administrador</option></select></label>
-    <label>Validade<select value={form.hours} onChange={e=>setForm({...form,hours:e.target.value})}><option value="24">24 horas</option><option value="72">3 dias</option><option value="168">7 dias</option></select></label>
-    <label className="invite-note">Para quem (opcional)<input maxLength={120} value={form.note} placeholder="Ex.: Ana — vendas" onChange={e=>setForm({...form,note:e.target.value})}/></label>
-    <button className="button-primary" type="submit" disabled={busy}><KeyRound size={16}/>{busy?'Gerando…':'Gerar código'}</button>
+  <Card>
+   <CardHeader title="Convidar pessoa" description="O código vale para uma única conta e expira no prazo escolhido."/>
+   <form className="invite-form grid gap-4 p-4 sm:p-5 md:grid-cols-[160px_150px_minmax(0,1fr)_auto] md:items-end" onSubmit={createInvite}>
+    <Field id="invite-role" label="Papel"><NativeSelect id="invite-role" value={form.role} onChange={e=>setForm({...form,role:e.target.value as MemberRole})}><option value="member">Membro</option><option value="admin">Administrador</option></NativeSelect></Field>
+    <Field id="invite-hours" label="Validade"><NativeSelect id="invite-hours" value={form.hours} onChange={e=>setForm({...form,hours:e.target.value})}><option value="24">24 horas</option><option value="72">3 dias</option><option value="168">7 dias</option></NativeSelect></Field>
+    <Field id="invite-note" label="Para quem (opcional)"><Input id="invite-note" maxLength={120} value={form.note} placeholder="Ex.: Ana — vendas" onChange={e=>setForm({...form,note:e.target.value})}/></Field>
+    <Button type="submit" disabled={busy}>{busy?<Loader2 className="spinning"/>:<KeyRound/>}{busy?'Gerando…':'Gerar código'}</Button>
    </form>
-   {created&&<div className="invite-created" role="status">
-    <span>Código gerado (válido até {when(created.expiresAt)})</span>
-    <div><code>{created.code}</code><button type="button" className="button-secondary" onClick={()=>void copyCode()}><Copy size={15}/> Copiar</button></div>
-    <small>Este código só aparece agora. Envie por um canal privado; a pessoa cria a conta em “Criar conta com convite”.</small>
+   {created&&<div className="invite-created mx-4 mb-4 rounded-xl border border-dashed border-orange/60 bg-orange-soft p-4 sm:mx-5 sm:mb-5" role="status">
+    <p className="text-[13px] font-semibold text-orange-text">Código gerado (válido até {when(created.expiresAt)})</p>
+    <div className="mt-2 flex flex-wrap items-center gap-3"><code className="rounded-lg bg-card px-3 py-2 font-mono text-lg font-bold tracking-[0.12em] text-foreground shadow-card select-all">{created.code}</code><Button variant="outline" size="sm" onClick={()=>void copyCode()}><Copy/>Copiar</Button></div>
+    <small className="mt-2 block text-xs text-muted-foreground">Este código só aparece agora. Envie por um canal privado; a pessoa cria a conta em “Criar conta com convite”.</small>
    </div>}
-  </section>
+  </Card>
 
-  <section className="panel data-panel">
-   <div className="data-heading"><span>Membros com acesso</span><small>{members.length} {members.length===1?'membro':'membros'}</small></div>
-   {loading&&!members.length?<p>Carregando…</p>:<div className="records">{members.map(m=><div className="record member-record" key={m.user_id}>
-    <div className="record-icon">{m.role==='admin'?<ShieldCheck size={19}/>:<UserRound size={19}/>}</div>
-    <div className="record-description"><strong>{m.email}{m.user_id===selfId?' (você)':''}</strong><small>{roleLabel(m.role)} · desde {when(m.created_at)}</small></div>
-    <div className="record-actions">
-     <button type="button" className="action-edit" onClick={()=>setConfirm({kind:'role',member:m,next:m.role==='admin'?'member':'admin'})}>{m.role==='admin'?'Tornar membro':'Tornar admin'}</button>
-     <button type="button" className="action-out" onClick={()=>setConfirm({kind:'remove',member:m})}>Remover acesso</button>
-    </div>
-   </div>)}</div>}
-  </section>
+  <div className="grid gap-5 xl:grid-cols-2">
+   <Card className="overflow-hidden">
+    <CardHeader title="Membros com acesso" action={<span className="tabular text-xs font-semibold text-muted-foreground">{members.length} {members.length===1?'membro':'membros'}</span>}/>
+    {loading&&!members.length?<ListSkeleton rows={2}/>:<div className="divide-y divide-border">{members.map(m=><div className="record member-record flex flex-wrap items-center gap-3 px-4 py-3.5 sm:px-5" key={m.user_id}>
+     <div className={cn('grid size-10 shrink-0 place-items-center rounded-full',m.role==='admin'?'bg-orange-soft text-orange-text':'bg-brand-soft text-brand')}>{m.role==='admin'?<ShieldCheck className="size-[18px]"/>:<UserRound className="size-[18px]"/>}</div>
+     <div className="record-description min-w-0 flex-1"><strong className="block truncate text-sm font-semibold text-foreground">{m.email}{m.user_id===selfId?' (você)':''}</strong><small className="block text-[13px] text-muted-foreground">{roleLabel(m.role)} · desde {when(m.created_at)}</small></div>
+     <div className="record-actions flex w-full gap-2 sm:w-auto">
+      <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={()=>setConfirm({kind:'role',member:m,next:m.role==='admin'?'member':'admin'})}>{m.role==='admin'?'Tornar membro':'Tornar admin'}</Button>
+      <Button variant="soft-destructive" size="sm" className="flex-1 sm:flex-none" onClick={()=>setConfirm({kind:'remove',member:m})}><UserMinus/>Remover acesso</Button>
+     </div>
+    </div>)}</div>}
+   </Card>
 
-  <section className="panel data-panel">
-   <div className="data-heading"><span>Convites</span><small>Últimos 100</small></div>
-   {!invites.length?<p>{loading?'Carregando…':'Nenhum convite gerado ainda.'}</p>:<div className="records">{invites.map(i=>{const s=inviteStatus(i);return <div className="record invite-record" key={i.invite_id}>
-    <div className="record-description"><strong>{i.note||'Convite sem identificação'}</strong><small>{roleLabel(i.role)} · criado em {when(i.created_at)} · {s==='Usado'?'usado por '+(i.used_by_email||'conta removida'):s==='Ativo'?'expira em '+when(i.expires_at):s}</small></div>
-    <span className={'invite-status status-'+s.toLowerCase()}>{s}</span>
-    {s==='Ativo'&&<div className="record-actions"><button type="button" className="action-out" onClick={()=>setConfirm({kind:'revoke',invite:i})}>Revogar</button></div>}
-   </div>;})}</div>}
-  </section>
+   <Card className="overflow-hidden">
+    <CardHeader title="Convites" action={<span className="text-xs font-semibold text-muted-foreground">Últimos 100</span>}/>
+    {!invites.length?(loading?<ListSkeleton rows={2}/>:<EmptyState icon={<Ticket/>} title="Nenhum convite gerado ainda" description="Gere um código acima para convidar alguém."/>):<div className="divide-y divide-border">{invites.map(i=>{const s=inviteStatus(i);return <div className="record invite-record flex flex-wrap items-center gap-3 px-4 py-3.5 sm:px-5" key={i.invite_id}>
+     <div className="record-description min-w-0 flex-1"><strong className="block truncate text-sm font-semibold text-foreground">{i.note||'Convite sem identificação'}</strong><small className="block text-[13px] text-muted-foreground">{roleLabel(i.role)} · criado em {when(i.created_at)} · {s==='Usado'?'usado por '+(i.used_by_email||'conta removida'):s==='Ativo'?'expira em '+when(i.expires_at):s}</small></div>
+     <Badge variant={inviteVariant[s]} className={'invite-status status-'+s.toLowerCase()}>{s}</Badge>
+     {s==='Ativo'&&<div className="record-actions"><Button variant="soft-destructive" size="sm" onClick={()=>setConfirm({kind:'revoke',invite:i})}>Revogar</Button></div>}
+    </div>;})}</div>}
+   </Card>
+  </div>
 
-  {confirm&&confirmText&&<div className="archive-overlay"><section className="archive-dialog" role="alertdialog" aria-modal="true" aria-labelledby="users-confirm-title" aria-describedby="users-confirm-desc"><h2 id="users-confirm-title">{confirmText.title}</h2><p id="users-confirm-desc">{confirmText.subject}</p><p>{confirmText.body}</p><div className="archive-actions"><button className="button-secondary" type="button" disabled={busy} onClick={()=>setConfirm(null)}>Cancelar</button><button className="button-primary" type="button" disabled={busy} onClick={()=>void runConfirm()}>{busy?'Salvando…':confirmText.action}</button></div></section></div>}
+  <ConfirmDialog open={Boolean(confirm&&confirmText)} busy={busy} onCancel={()=>setConfirm(null)} onConfirm={()=>void runConfirm()}
+   title={confirmText?.title||''} subject={confirmText?.subject} body={confirmText?.body||''} confirmLabel={confirmText?.action||''} destructive={confirmText?.destructive}
+   icon={confirm?.kind==='role'?<ShieldCheck/>:<UserMinus/>}/>
  </div>;
 }

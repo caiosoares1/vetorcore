@@ -1,34 +1,25 @@
-import {useContext,useEffect,useMemo,useState} from 'react';
-import {AlertCircle,ArrowDownCircle,ArrowUpCircle,ArrowDownUp,Box,CheckCircle2,ChevronRight,ClipboardList,FileText,LayoutDashboard,Package,PenLine,Plus,RefreshCw,Search,ShieldCheck,Truck,Users,X} from 'lucide-react';
+import {useCallback,useContext,useEffect,useMemo,useState} from 'react';
+import {Archive,ArrowDownUp,Package,Plus,RefreshCw,RotateCcw,Truck,Users} from 'lucide-react';
 import {supabase} from './lib/supabase';
 import RecordEditor,{type Product,type Party,type Movement,type EditorTarget} from './components/RecordEditor';
 import CommercePages from './components/CommercePages';
 import UsersPage from './components/UsersPage';
-import ThemeToggle from './components/ThemeToggle';
+import Dashboard from './components/Dashboard';
+import Shell,{type Page} from './components/Shell';
+import {HistoryRow,PartyRow,ProductRow,SearchBox} from './components/Records';
+import {Button} from './components/ui/button';
+import {Card,CardHeader,EmptyState,ListSkeleton,Segmented} from './components/ui/display';
+import {ConfirmDialog} from './components/ui/overlays';
+import {ErrorBanner,Toast} from './components/ui/toast';
 import {MemberRoleContext} from './AuthGate';
-import {inventoryStats,errorMessage,bagSpecLabel,productMargin} from './lib/domain';
+import {errorMessage} from './lib/domain';
+import {cn} from './lib/utils';
 
-type Page='home'|'products'|'quotes'|'orders'|'suppliers'|'customers'|'moves'|'users';
-const navItems=[
-  {key:'home',label:'Início',Icon:LayoutDashboard},
-  {key:'products',label:'Produtos',Icon:Package},
-  {key:'quotes',label:'Orçamentos',Icon:FileText},
-  {key:'orders',label:'Pedidos',Icon:ClipboardList},
-  {key:'suppliers',label:'Fornecedores',Icon:Truck},
-  {key:'customers',label:'Clientes',Icon:Users},
-  {key:'moves',label:'Estoque',Icon:ArrowDownUp}
-] as const;
-// Visível só para administradores; as RPCs de usuários recusam quem não é admin.
-const adminNavItems=[...navItems,{key:'users',label:'Usuários',Icon:ShieldCheck}] as const;
-const currency=(amount:number)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(amount);
-
-function EmptyState({title,description,onAction,actionLabel}:{title:string;description:string;onAction?:()=>void;actionLabel?:string}){
-  return <div className="empty-state"><div className="empty-icon"><Box size={26}/></div><h3>{title}</h3><p>{description}</p>{onAction&&<button className="button-primary" type="button" onClick={onAction}><Plus size={17}/>{actionLabel||'Adicionar'}</button>}</div>;
-}
+type ArchiveTarget={table:'products'|'customers'|'suppliers';id:string;name:string;archived:boolean};
+const count=(n:number,one:string,many:string)=>n+' '+(n===1?one:many);
 
 export default function App(){
  const role=useContext(MemberRoleContext);
- const visibleNav=role==='admin'?adminNavItems:navItems;
  const [page,setPage]=useState<Page>('home');
  const [products,setProducts]=useState<Product[]>([]);
  const [customers,setCustomers]=useState<Party[]>([]);
@@ -41,9 +32,13 @@ export default function App(){
  const [search,setSearch]=useState('');
  const [editor,setEditor]=useState<EditorTarget|null>(null);
  const [showArchived,setShowArchived]=useState(false);
- const [archiveTarget,setArchiveTarget]=useState<{table:'products'|'customers'|'suppliers';id:string;name:string;archived:boolean}|null>(null);
+ const [lowOnly,setLowOnly]=useState(false);
+ const [historyFilter,setHistoryFilter]=useState<'all'|'in'|'out'>('all');
+ const [archiveTarget,setArchiveTarget]=useState<ArchiveTarget|null>(null);
  const [archiveBusy,setArchiveBusy]=useState(false);
  const [syncedAt,setSyncedAt]=useState<Date|null>(null);
+ const [pendingQuote,setPendingQuote]=useState(false);
+ const quoteHandled=useCallback(()=>setPendingQuote(false),[]);
 
  async function refresh(isManual=false){
    const client=supabase;
@@ -71,93 +66,92 @@ export default function App(){
  useEffect(()=>{void refresh();},[]);
  useEffect(()=>{if(!toast)return;const timer=window.setTimeout(()=>setToast(''),4400);return()=>window.clearTimeout(timer);},[toast]);
 
- const {activeProducts,lowStock,inventoryCost:inventoryValue}=inventoryStats(products);
  const filtered=useMemo(()=>{
    const q=search.toLocaleLowerCase('pt-BR').trim();
+   const has=(text:string)=>text.toLocaleLowerCase('pt-BR').includes(q);
+   const state=(item:{archivedAt?:string|null})=>Boolean(item.archivedAt)===showArchived;
    return {
-     products:products.filter(p=>(Boolean(p.archivedAt)===showArchived)&&(p.name+' '+p.sku+' '+p.category+' '+(p.model||'')).toLocaleLowerCase('pt-BR').includes(q)),
-     customers:customers.filter(p=>(Boolean(p.archivedAt)===showArchived)&&(p.name+' '+p.doc+' '+p.phone+' '+(p.address||'')).toLocaleLowerCase('pt-BR').includes(q)),
-     suppliers:suppliers.filter(p=>(Boolean(p.archivedAt)===showArchived)&&(p.name+' '+p.doc+' '+p.category).toLocaleLowerCase('pt-BR').includes(q))
+     products:products.filter(p=>state(p)&&(!lowOnly||p.qty<=p.min)&&has(p.name+' '+p.sku+' '+p.category+' '+(p.model||''))),
+     customers:customers.filter(p=>state(p)&&has(p.name+' '+p.doc+' '+p.phone+' '+p.email+' '+(p.address||''))),
+     suppliers:suppliers.filter(p=>state(p)&&has(p.name+' '+p.doc+' '+(p.category||'')))
    };
- },[products,customers,suppliers,search,showArchived]);
- function navigate(next:Page){setPage(next);setSearch('');setShowArchived(false);window.scrollTo({top:0,behavior:'smooth'});}
+ },[products,customers,suppliers,search,showArchived,lowOnly]);
+
+ function navigate(next:Page){setPage(next);setSearch('');setShowArchived(false);setLowOnly(false);setHistoryFilter('all');window.scrollTo({top:0,behavior:'smooth'});}
  function create(){if(page==='products')setEditor({kind:'product'});if(page==='customers')setEditor({kind:'party',table:'customers'});if(page==='suppliers')setEditor({kind:'party',table:'suppliers'});}
  async function saved(message:string){await refresh(true);setEditor(null);setToast(message);}
- async function archiveRecord(){const target=archiveTarget,client=supabase;if(!target||!client)return;setArchiveBusy(true);setError('');try{const {error}=await client.from(target.table).update({archived_at:target.archived?null:new Date().toISOString()}).eq('id',target.id).select('id').single();if(error)throw error;await refresh(true);setArchiveTarget(null);setToast(target.archived?'Cadastro restaurado.':'Cadastro arquivado.');}catch(e){setError(errorMessage(e,'Falha ao alterar cadastro.'));}finally{setArchiveBusy(false);}}
- const current=adminNavItems.find(x=>x.key===page)!;
- const hasSearch=page==='products'||page==='customers'||page==='suppliers'||page==='moves';
- const canCreate=page==='products'||page==='customers'||page==='suppliers';
+ async function archiveRecord(){const target=archiveTarget,client=supabase;if(!target||!client)return;setArchiveBusy(true);setError('');try{const {error}=await client.from(target.table).update({archived_at:target.archived?null:new Date().toISOString()}).eq('id',target.id).select('id').single();if(error)throw error;await refresh(true);setArchiveTarget(null);setToast(target.archived?'Cadastro restaurado.':'Cadastro arquivado.');}catch(e){setError(errorMessage(e,'Falha ao alterar cadastro.'));setArchiveTarget(null);}finally{setArchiveBusy(false);}}
+
  const move=(product:Product,direction:'Entrada'|'Saída')=>setEditor({kind:'movement',product,direction});
  const editorKey=editor?.kind==='product'?'product-'+(editor.item?.id||'new'):editor?.kind==='party'?editor.table+'-'+(editor.item?.id||'new'):editor?.kind==='movement'?'move-'+editor.product.id+'-'+editor.direction:'';
  const productById=new Map(products.map(p=>[p.id,p]));
  const supplierById=new Map(suppliers.map(s=>[s.id,s]));
- const marginLabel=(p:Product)=>{const pct=productMargin(Math.round(p.cost*100),Math.round(p.price*100)).marginPct;return pct===null?'':' · margem '+pct.toLocaleString('pt-BR')+'%';};
- const sidebar=visibleNav.map(({key,label,Icon})=><button key={key} className={page===key?'active':''} aria-current={page===key?'page':undefined} onClick={()=>navigate(key)}><Icon size={19}/><span>{label}</span></button>);
+ const catalog=page==='products'||page==='customers'||page==='suppliers';
+ const all={products,customers,suppliers}[page as 'products'|'customers'|'suppliers']||[];
+ const activeCount=all.filter(x=>!x.archivedAt).length;
+ const lowCount=products.filter(p=>!p.archivedAt&&p.qty<=p.min).length;
+ const history=movements.filter(m=>historyFilter==='all'||(historyFilter==='in'?m.delta>0:m.delta<0));
+ const addLabel=page==='products'?'Novo produto':page==='customers'?'Novo cliente':'Novo fornecedor';
+ const reload=<Button variant="outline" size="icon" title="Recarregar" aria-label="Recarregar" disabled={refreshing} onClick={()=>void refresh(true)}><RefreshCw className={refreshing?'spinning':''}/></Button>;
 
- return <div className="shell">
-   <aside>
-     <div className="brand"><img src="/icon.svg" alt="Vetor"/><div><b>Vetor <em>Hub</em></b><small>VETOR EMBALAGENS</small></div></div>
-     <p className="nav-label">ESPAÇO DE TRABALHO</p>
-     <nav aria-label="Navegação principal">{sidebar}</nav>
-     <div className="sidebar-note"><span className="sync-indicator"/> Dados conectados ao Supabase<br/>Acesso protegido</div>
-   </aside>
-   <div className="main">
-     <header><div><span className="overline">VETOR EMBALAGENS / GESTÃO</span><h1>{current.label}</h1></div><div className="header-actions"><ThemeToggle/><span className="avatar" title="Vetor Hub">VH</span></div></header>
-     <main className="workspace">
-       {error&&<div className="app-error" role="alert"><AlertCircle size={19}/><span>{error}</span><button type="button" onClick={()=>setError('')} aria-label="Fechar aviso"><X size={16}/></button></div>}
-       {toast&&<div className="app-toast" role="status"><CheckCircle2 size={19}/><span>{toast}</span><button type="button" aria-label="Dispensar" onClick={()=>setToast('')}><X size={16}/></button></div>}
-       {page==='home'?<>
-         <div className="welcome"><div><span className="eyebrow">VISÃO GERAL</span><h2>Bem-vindo ao Vetor Hub.</h2><p>Acompanhe sua operação em um só lugar.</p></div><button className="button-secondary refresh-button" type="button" disabled={refreshing} onClick={()=>void refresh(true)}><RefreshCw size={16} className={refreshing?'spinning':''}/> Atualizar</button></div>
-         <div className="stats">
-           <article><span>Produtos ativos</span><strong>{loading?'—':activeProducts}</strong><span className="stat-bottom">Itens no catálogo</span></article>
-           <article><span>Estoque baixo</span><strong>{loading?'—':lowStock}</strong><span className={'stat-bottom'+(lowStock?' stat-warning':'')}>{lowStock?'Precisam de atenção':'Tudo em dia'}</span></article>
-           <article><span>Valor em estoque (custo)</span><strong className="money-stat">{loading?'—':currency(inventoryValue)}</strong><span className="stat-bottom">Estimativa pelo custo cadastrado</span></article>
-         </div>
-         <section className="panel quick-panel"><div className="panel-heading"><h2>Acesso rápido</h2><p>O que você precisa fazer hoje?</p></div><div className="quick-grid">
-           <button type="button" onClick={()=>{navigate('products');setEditor({kind:'product'});}}><div className="quick-icon"><Plus size={19}/></div><span><strong>Cadastrar produto</strong><small>Adicionar ao catálogo</small></span><ChevronRight size={18}/></button>
-           <button type="button" onClick={()=>navigate('moves')}><div className="quick-icon"><ArrowDownUp size={19}/></div><span><strong>Movimentar estoque</strong><small>Registrar entrada ou saída</small></span><ChevronRight size={18}/></button>
-           <button type="button" onClick={()=>{navigate('customers');setEditor({kind:'party',table:'customers'});}}><div className="quick-icon"><Users size={19}/></div><span><strong>Novo cliente</strong><small>Cadastrar contato</small></span><ChevronRight size={18}/></button>
-         </div></section>
-         <div className="sync-caption">Última sincronização: {syncedAt?syncedAt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'carregando...'}</div>
-       </>:page==='users'&&role==='admin'?<UsersPage onNotice={setToast}/>:(page==='quotes'||page==='orders')?<CommercePages mode={page} products={products} customers={customers} onNotice={setToast}/>:<div className="content-page">
-         <div className="page-heading">
-           <div><h2>{page==='products'?'Catálogo de produtos':page==='customers'?'Seus clientes':page==='suppliers'?'Rede de fornecedores':page==='moves'?'Controle de estoque':'Orçamentos'}</h2><p>{page==='products'?'Gerencie preços, categorias e quantidades.':page==='customers'?'Cadastre e organize seus contatos comerciais.':page==='suppliers'?'Tenha os dados dos seus parceiros à mão.':page==='moves'?'Registre cada entrada e saída com rastreabilidade.':'Em breve: crie propostas e transforme-as em pedidos.'}</p></div>
-           {canCreate&&<button className="button-primary add-button" type="button" onClick={create}><Plus size={18}/><span>{page==='products'?'Novo produto':page==='customers'?'Novo cliente':'Novo fornecedor'}</span></button>}
-         </div>
-         {hasSearch&&<div className="filter-row"><label className="search-control"><Search size={18}/><input aria-label="Buscar registros" placeholder={page==='products'||page==='moves'?'Buscar por produto ou código':page==='customers'?'Buscar cliente':'Buscar fornecedor'} value={search} onChange={e=>setSearch(e.target.value)}/></label>{page!=='moves'&&<button type="button" className="button-secondary archive-filter" onClick={()=>setShowArchived(v=>!v)}>{showArchived?'Ver ativos':'Arquivados'}</button>}<button title="Recarregar" type="button" className="button-icon" disabled={refreshing} onClick={()=>void refresh(true)}><RefreshCw size={17} className={refreshing?'spinning':''}/></button></div>}
-         {(page==='products'||page==='moves')&&<section className="panel data-panel">
-           <div className="data-heading"><span>{page==='products'?'Produtos cadastrados':'Produtos disponíveis'}</span><small>{filtered.products.length} {filtered.products.length===1?'registro':'registros'}</small></div>
-           {filtered.products.length===0?<EmptyState title={loading?'Carregando produtos…':products.length?'Nenhum resultado encontrado':'Seu catálogo começa aqui'} description={products.length?'Tente outro termo de busca.':'Cadastre um produto para começar a controlar entradas e saídas.'} onAction={page==='products'&&!products.length?()=>setEditor({kind:'product'}):undefined} actionLabel="Cadastrar produto"/>:
-             <div className="records">{filtered.products.map(p=><div className="record record-product" key={p.id}>
-               <div className="record-icon"><Package size={19}/></div>
-               <div className="record-description"><strong>{p.name}</strong><small>{p.sku} <span className="record-divider">·</span> {p.category}{bagSpecLabel(p)&&<> <span className="record-divider">·</span> {bagSpecLabel(p)}</>}</small><span className="record-subvalue">{currency(p.price)} / un.{page==='products'&&marginLabel(p)}</span></div>
-               <div className="record-stock"><b>{p.qty} <small>un.</small></b>{p.qty<=p.min&&<span className="stock-alert">Estoque baixo</span>}</div>
-               <div className="record-actions">
-                 {page==='products'&&!p.archivedAt&&<button type="button" className="action-edit" onClick={()=>setEditor({kind:'product',item:p})}><PenLine size={15}/> Editar</button>}{page==='products'&&<button type="button" className="action-edit" onClick={()=>setArchiveTarget({table:'products',id:p.id,name:p.name,archived:Boolean(p.archivedAt)})}>{p.archivedAt?'Restaurar':'Arquivar'}</button>}
-                 {!p.archivedAt&&<button type="button" className="action-in" onClick={()=>move(p,'Entrada')}><ArrowDownCircle size={16}/> Entrada</button>}
-                 {!p.archivedAt&&<button type="button" className="action-out" onClick={()=>move(p,'Saída')}><ArrowUpCircle size={16}/> Saída</button>}
-               </div>
-             </div>)}</div>}
-         </section>}
-         {page==='moves'&&<section className="panel data-panel movement-history"><div className="data-heading"><span>Movimentações recentes</span><small>Últimas 100</small></div>
-           {!movements.length?<EmptyState title="Sem movimentações ainda" description="As entradas e saídas realizadas no app aparecerão aqui."/>:<div className="records">{movements.map(m=><div className="record history-record" key={m.id}><div className={'history-icon '+(m.delta>0?'in':'out')}>{m.delta>0?<ArrowDownCircle size={20}/>:<ArrowUpCircle size={20}/>}</div><div className="record-description"><strong>{productById.get(m.productId)?.name||'Produto não encontrado'}</strong><small>{new Date(m.createdAt).toLocaleString('pt-BR')}{m.supplierId&&supplierById.has(m.supplierId)?' · '+supplierById.get(m.supplierId)!.name:''}{m.unitCost!=null?' · '+currency(m.unitCost)+'/un.':''}{m.note?' · '+m.note:''}</small></div><b className={m.delta>0?'delta-in':'delta-out'}>{m.delta>0?'+':''}{m.delta} un.</b></div>)}</div>}
-         </section>}
-         {(page==='customers'||page==='suppliers')&&<section className="panel data-panel">
-           <div className="data-heading"><span>{page==='customers'?'Clientes cadastrados':'Fornecedores cadastrados'}</span><small>{filtered[page].length} {filtered[page].length===1?'registro':'registros'}</small></div>
-           {filtered[page].length===0?<EmptyState title={loading?'Carregando…':(page==='customers'?customers:suppliers).length?'Nenhum resultado encontrado':'Nenhum cadastro ainda'} description={(page==='customers'?customers:suppliers).length?'Tente outra busca.':'Comece adicionando seu primeiro cadastro.'} onAction={!(page==='customers'?customers:suppliers).length?create:undefined} actionLabel={page==='customers'?'Novo cliente':'Novo fornecedor'}/>:
-           <div className="records">{filtered[page].map(p=><div className="record party-record" key={p.id}>
-             <div className="record-icon">{page==='customers'?<Users size={19}/>:<Truck size={19}/>}</div>
-             <div className="record-description"><strong>{p.name}</strong><small>{p.phone||p.email||'Sem contato informado'}{p.address?' · '+p.address:''}</small>{p.doc&&<span className="record-subvalue">{p.doc}</span>}</div>
-             <div className="record-actions">{!p.archivedAt&&<button type="button" className="action-edit" onClick={()=>setEditor({kind:'party',table:page,item:p})}><PenLine size={15}/> Editar</button>}<button type="button" className="action-edit" onClick={()=>setArchiveTarget({table:page,id:p.id,name:p.name,archived:Boolean(p.archivedAt)})}>{p.archivedAt?'Restaurar':'Arquivar'}</button></div>
-           </div>)}</div>}
-         </section>}
+ let content;
+ if(page==='home'){
+   content=<Dashboard products={products} movements={movements} loading={loading} refreshing={refreshing} syncedAt={syncedAt} onRefresh={()=>void refresh(true)}
+     onNewProduct={()=>{navigate('products');setEditor({kind:'product'});}} onOpenStock={()=>navigate('moves')} onNewCustomer={()=>{navigate('customers');setEditor({kind:'party',table:'customers'});}}
+     onNewQuote={()=>{navigate('quotes');setPendingQuote(true);}} onRestock={p=>move(p,'Entrada')} onSeeProducts={()=>{navigate('products');setLowOnly(true);}}/>;
+ }else if(page==='users'&&role==='admin'){
+   content=<UsersPage onNotice={setToast}/>;
+ }else if(page==='quotes'||page==='orders'){
+   content=<CommercePages key={page} mode={page} products={products} customers={customers} onNotice={setToast} startCreating={page==='quotes'&&pendingQuote} onCreateHandled={quoteHandled}/>;
+ }else{
+   const productList=(page==='products'||page==='moves')&&<Card className="overflow-hidden">
+     <CardHeader title={page==='products'?(showArchived?'Produtos arquivados':'Produtos cadastrados'):'Produtos disponíveis'} description={page==='moves'?'Escolha um produto para registrar entrada ou saída.':undefined} action={<span className="tabular text-xs font-semibold text-muted-foreground">{count(filtered.products.length,'registro','registros')}</span>}/>
+     {loading&&!products.length?<ListSkeleton/>:filtered.products.length===0
+       ?<EmptyState icon={<Package/>} title={products.length?'Nenhum resultado encontrado':'Seu catálogo começa aqui'} description={products.length?'Tente outro termo de busca ou ajuste os filtros.':'Cadastre um produto para começar a controlar entradas e saídas.'}
+          action={page==='products'&&!products.length?<Button onClick={()=>setEditor({kind:'product'})}><Plus/>Cadastrar produto</Button>:undefined}/>
+       :<div className="divide-y divide-border">{filtered.products.map(p=><ProductRow key={p.id} product={p} showCatalogActions={page==='products'}
+          onEdit={()=>setEditor({kind:'product',item:p})} onArchive={()=>setArchiveTarget({table:'products',id:p.id,name:p.name,archived:Boolean(p.archivedAt)})} onMove={direction=>move(p,direction)}/>)}</div>}
+   </Card>;
+   const partyKind=page==='customers'||page==='suppliers'?page:null;
+   content=<div className="space-y-5">
+     <div className="page-heading flex flex-col gap-3 md:flex-row md:items-center">
+       <SearchBox label="Buscar registros" value={search} onChange={setSearch} placeholder={page==='products'||page==='moves'?'Buscar por produto, código ou categoria':page==='customers'?'Buscar por nome, documento, telefone ou endereço':'Buscar por nome, documento ou categoria'}/>
+       <div className="flex flex-wrap items-center gap-2">
+         {catalog&&<Segmented label="Situação do cadastro" value={showArchived?'archived':'active'} onChange={v=>{setShowArchived(v==='archived');setLowOnly(false);}}
+           options={[{value:'active',label:'Ativos',count:activeCount},{value:'archived',label:'Arquivados',count:all.length-activeCount}]}/>}
+         {(page==='products'||page==='moves')&&!showArchived&&<Button variant="outline" aria-pressed={lowOnly} onClick={()=>setLowOnly(v=>!v)}
+           className={cn(lowOnly&&'border-warning/50 bg-warning-soft text-warning hover:bg-warning-soft hover:text-warning')}>Estoque baixo{lowCount>0&&<span className="tabular rounded-full bg-orange px-1.5 text-[11px] text-[#1d1004]">{lowCount}</span>}</Button>}
+         {reload}
+         {catalog&&<Button className="add-button ml-auto md:ml-0" onClick={create}><Plus/><span>{addLabel}</span></Button>}
+       </div>
+     </div>
+     {productList}
+     {page==='moves'&&<Card className="movement-history overflow-hidden">
+       <CardHeader title="Movimentações recentes" description="Últimas 100 entradas e saídas." action={<Segmented label="Tipo de movimentação" value={historyFilter} onChange={setHistoryFilter}
+         options={[{value:'all',label:'Todas'},{value:'in',label:'Entradas'},{value:'out',label:'Saídas'}]}/>} className="flex-col sm:flex-row"/>
+       {loading&&!movements.length?<ListSkeleton rows={3}/>:!history.length?<EmptyState icon={<ArrowDownUp/>} title={movements.length?'Nada neste filtro':'Sem movimentações ainda'} description={movements.length?'Mude o filtro para ver outras movimentações.':'As entradas e saídas realizadas no app aparecerão aqui.'}/>
+         :<div className="divide-y divide-border">{history.map(m=><HistoryRow key={m.id} movement={m} productName={productById.get(m.productId)?.name||'Produto não encontrado'} supplierName={m.supplierId?supplierById.get(m.supplierId)?.name:undefined}/>)}</div>}
+     </Card>}
+     {partyKind&&<Card className="overflow-hidden">
+       <CardHeader title={(partyKind==='customers'?'Clientes':'Fornecedores')+(showArchived?' arquivados':' cadastrados')} action={<span className="tabular text-xs font-semibold text-muted-foreground">{count(filtered[partyKind].length,'registro','registros')}</span>}/>
+       {loading&&!all.length?<ListSkeleton/>:filtered[partyKind].length===0
+         ?<EmptyState icon={partyKind==='customers'?<Users/>:<Truck/>} title={all.length?'Nenhum resultado encontrado':'Nenhum cadastro ainda'} description={all.length?'Tente outra busca.':'Comece adicionando seu primeiro cadastro.'}
+            action={!all.length?<Button onClick={create}><Plus/>{partyKind==='customers'?'Cadastrar cliente':'Cadastrar fornecedor'}</Button>:undefined}/>
+         :<div className="divide-y divide-border">{filtered[partyKind].map(p=><PartyRow key={p.id} party={p} kind={partyKind}
+            onEdit={()=>setEditor({kind:'party',table:partyKind,item:p})} onArchive={()=>setArchiveTarget({table:partyKind,id:p.id,name:p.name,archived:Boolean(p.archivedAt)})}/>)}</div>}
+     </Card>}
+   </div>;
+ }
 
-       </div>}
-     </main>
-     <footer>Vetor Hub · Gestão conectada ao Supabase</footer>
-   </div>
-   <nav className="bottom-nav" aria-label="Navegação mobile">{visibleNav.map(({key,label,Icon})=><button type="button" key={key} className={page===key?'active':''} aria-current={page===key?'page':undefined} onClick={()=>navigate(key)}><Icon size={20}/><span>{label}</span></button>)}</nav>
-   {archiveTarget&&<div className="archive-overlay"><section className="archive-dialog" role="alertdialog" aria-modal="true" aria-labelledby="archive-title" aria-describedby="archive-desc"><h2 id="archive-title">{archiveTarget.archived?'Restaurar cadastro?':'Arquivar cadastro?'}</h2><p id="archive-desc">{archiveTarget.name}</p><p>{archiveTarget.archived?'O cadastro voltará à lista de ativos.':'O cadastro será ocultado, mas seu histórico será preservado.'}</p><div className="archive-actions"><button className="button-secondary" type="button" disabled={archiveBusy} onClick={()=>setArchiveTarget(null)}>Cancelar</button><button className="button-primary" type="button" disabled={archiveBusy} onClick={()=>void archiveRecord()}>{archiveBusy?'Salvando…':archiveTarget.archived?'Restaurar':'Confirmar arquivamento'}</button></div></section></div>}
+ return <Shell page={page} role={role} onNavigate={navigate} syncedAt={syncedAt} refreshing={refreshing} onRefresh={()=>void refresh(true)}>
+   {error&&<div className="mb-5"><ErrorBanner message={error} onDismiss={()=>setError('')}/></div>}
+   {content}
+   <Toast message={toast} onDismiss={()=>setToast('')}/>
+   <ConfirmDialog open={Boolean(archiveTarget)} busy={archiveBusy} onCancel={()=>setArchiveTarget(null)} onConfirm={()=>void archiveRecord()}
+     icon={archiveTarget?.archived?<RotateCcw/>:<Archive/>}
+     title={archiveTarget?.archived?'Restaurar cadastro?':'Arquivar cadastro?'} subject={archiveTarget?.name}
+     body={archiveTarget?.archived?'O cadastro voltará à lista de ativos.':'O cadastro será ocultado, mas seu histórico será preservado.'}
+     confirmLabel={archiveTarget?.archived?'Restaurar':'Confirmar arquivamento'}/>
    {editor&&<RecordEditor key={editorKey} target={editor} suppliers={suppliers.filter(p=>!p.archivedAt)} onClose={()=>setEditor(null)} onSaved={saved}/>}
- </div>;
+ </Shell>;
 }

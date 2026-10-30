@@ -1,10 +1,6 @@
 import {test,expect,type Page} from '@playwright/test';
 import {readFile} from 'node:fs/promises';
-import {mockBackend,loginAsMockUser,seededProduct,seededCustomer,seededSupplier} from './support/mockSupabase';
-
-async function openPage(page:Page,name:string){
- await page.getByRole('button',{name,exact:true}).first().click();
-}
+import {mockBackend,loginAsMockUser,seededProduct,seededCustomer,seededSupplier,openPage,signOut} from './support/mockSupabase';
 async function ready(page:Page, options:Parameters<typeof mockBackend>[1]={}){
  const mock=await mockBackend(page,options);
  await loginAsMockUser(page);
@@ -55,7 +51,7 @@ test('recuperação de senha não requer login',async({page})=>{
 
 test('usuário autorizado consegue sair da conta',async({page})=>{
  await ready(page);
- await page.getByRole('button',{name:'Sair da conta'}).click();
+ await signOut(page);
  await expect(page.getByRole('button',{name:'Entrar',exact:true})).toBeVisible();
 });
 

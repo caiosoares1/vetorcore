@@ -64,7 +64,7 @@ test('login, cadastro e entrada no estoque pela interface',async({page},testInfo
  await move.getByLabel('Quantidade para entrada').fill('4');
  await move.getByRole('button',{name:'Confirmar entrada'}).click();
  await expect(move).not.toBeVisible();
- await expect(page.getByText('4', {exact:false}).first()).toBeVisible();
+ await expect(page.locator('.record-product .record-stock').first()).toContainText('4 un.');
 });
 test('formulários podem ser fechados sem salvar',async({page})=>{
  await login(page);
@@ -150,9 +150,17 @@ test('menu inferior fica horizontal no mobile e permite navegação',async({page
    };
  });
  expect(actual.direction).toBe('row');
- expect(actual.buttonCount).toBe(7);
+ // Quatro telas principais + "Mais" com as demais.
+ expect(actual.buttonCount).toBe(5);
  expect(Math.abs(actual.firstTop-actual.lastTop)).toBeLessThan(5);
  expect(actual.navWidth).toBeLessThanOrEqual(actual.viewportWidth+1);
  await nav.getByRole('button',{name:'Produtos'}).click();
  await expect(page.getByRole('heading',{name:'Produtos',exact:true})).toBeVisible();
+ await nav.getByRole('button',{name:'Mais'}).click();
+ const more=page.getByRole('dialog',{name:'Mais opções'});
+ await expect(more.getByRole('button',{name:'Pedidos'})).toBeVisible();
+ await more.getByRole('button',{name:'Fornecedores'}).click();
+ await expect(more).not.toBeVisible();
+ await expect(page.getByRole('heading',{name:'Fornecedores',exact:true})).toBeVisible();
+ await expect(nav.getByRole('button',{name:'Mais'})).toHaveAttribute('aria-current','page');
 });

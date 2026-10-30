@@ -35,7 +35,7 @@ Criação de conta e papéis (ADR-0005, migration `0003_member_access.sql`): qua
 
 `src/App.tsx` carrega produtos, clientes, fornecedores e movimentos via `.from(...).select(...)`. `RecordEditor.tsx` envia `insert`/`update`; entradas e saídas invocam `record_stock_movement`, responsável por impedir estoque negativo e escrever histórico junto com o saldo.
 
-`archived_at` marca arquivamento reversível de produtos, clientes e fornecedores; os filtros de interface separam ativos e arquivados. As funções do banco também recusam itens/cliente arquivados em novas operações relevantes. O componente `EditorSheet` renderiza drawer no desktop e tela cheia no mobile; estilos em `src/editor.css`.
+`archived_at` marca arquivamento reversível de produtos, clientes e fornecedores; os filtros de interface separam ativos e arquivados. As funções do banco também recusam itens/cliente arquivados em novas operações relevantes. O componente `Sheet` (`src/components/ui/overlays.tsx`, Radix Dialog) renderiza drawer no desktop e tela cheia no mobile.
 
 ## Orçamentos, pedidos e PDF
 
@@ -43,7 +43,11 @@ Criação de conta e papéis (ADR-0005, migration `0003_member_access.sql`): qua
 
 ## Tema claro/escuro
 
-O tema efetivo fica em `<html data-theme="light|dark">`. O botão no cabeçalho e na tela de login alterna entre claro e escuro e salva a escolha por aparelho em `localStorage` (`vetor.theme`); sem escolha salva, segue o tema do aparelho (`src/components/ThemeToggle.tsx`, `src/theme.ts`). Um script em `index.html` aplica o tema antes do React para não piscar em claro. `src/dark.css` é gerado por `scripts/gen-dark-theme.mjs` a partir dos três CSS claros: cada cor é remapeada em OKLCH conforme o papel (fundo, texto, borda, sombra) e as declarações são copiadas sob `:root[data-theme="dark"]` para preservar a cascata. `tests/dark-theme.test.mjs` falha se o arquivo estiver desatualizado e verifica contraste AA dos textos principais.
+O tema efetivo fica em `<html data-theme="light|dark">`. O botão no cabeçalho e na tela de login alterna entre claro e escuro e salva a escolha por aparelho em `localStorage` (`vetor.theme`); sem escolha salva, segue o tema do aparelho (`src/components/ThemeToggle.tsx`, `src/theme.ts`). Um script em `index.html` aplica o tema antes do React para não piscar em claro. Os dois temas são conjuntos de tokens CSS em `src/index.css` (`:root` e `:root[data-theme="dark"]`), expostos ao Tailwind via `@theme inline` e a variante `dark:`. `tests/theme-tokens.test.mjs` verifica contraste AA dos pares texto/fundo nos dois temas e que o escuro define todos os tokens do claro (ADR-0006).
+
+## Interface e design system
+
+ADR-0006: Tailwind CSS v4 + componentes no padrão shadcn/ui escritos no repositório (`src/components/ui/`), usando primitivas Radix (Dialog, AlertDialog, DropdownMenu, Slot) e `class-variance-authority`. `src/components/Shell.tsx` define páginas, grupos da barra lateral (Comercial, Operação, Administração) e a navegação mobile (Início, Produtos, Orçamentos, Estoque + "Mais"). A saída da conta fica no menu do avatar no cabeçalho (`AccountContext` em `AuthGate`).
 
 ## Infraestrutura, testes e segurança
 

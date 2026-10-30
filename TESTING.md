@@ -22,7 +22,8 @@ A suíte é executada no GitHub Actions em cada push e pull request para `main`.
 - **Orçamentos:** seleção de cliente/produtos, quantidades, descontos, recusa de duplicados/arquivados, status e geração de PDF.
 - **Pedidos:** conversão somente após aprovação, bloqueio de duplicações (SQL), total, conclusão.
 - **Dashboard:** indicadores e exclusão de produtos arquivados.
-- **Responsividade:** as mesmas jornadas Playwright executadas em desktop e mobile.
+- **Responsividade:** as mesmas jornadas Playwright executadas em desktop e mobile; `tests/e2e/layout.spec.ts` garante que nenhuma tela fica mais larga que 360/412 px; navegação inferior com "Mais".
+- **Tema:** `tests/theme-tokens.test.mjs` (contraste AA dos tokens claro/escuro) e `tests/e2e/theme.spec.ts`.
 
 ## Como executar
 

@@ -17,7 +17,6 @@ Requer Node.js 22+ (README e CI). Gerenciador: npm; o repositório não contém 
 | Todos os unitários | `npm run test` |
 | Unitários com cobertura e limites | `npm run test:coverage` |
 | Um arquivo unitário | `node --experimental-strip-types --test tests/domain.test.mjs` |
-| Regenerar tema escuro | `npm run theme:dark` (após mudar cores nos CSS) |
 | Instalar Chromium para testes | `npx playwright install chromium` |
 | Todos os testes de navegador | `npm run test:e2e` |
 | Um arquivo E2E | `npx playwright test tests/e2e/full-flow.spec.ts` |
@@ -31,11 +30,12 @@ O CI em `.github/workflows/ci.yml` roda `npm install --no-audit --no-fund`, cobe
 - `src/App.tsx`: navegação via estado (sem React Router), dashboard, cadastros e estoque.
 - `src/AuthGate.tsx`: Supabase Auth e verificação de `app_members`.
 - `src/components/RecordEditor.tsx`: formulários de produto, cliente, fornecedor e movimentação.
-- `src/components/EditorSheet.tsx`: drawer web/tela cheia mobile.
+- `src/components/Shell.tsx`: barra lateral agrupada, cabeçalho com menu da conta, navegação inferior mobile (4 telas + "Mais").
+- `src/components/Dashboard.tsx`, `src/components/Records.tsx`: início e linhas de listas (produto, pessoa, histórico).
+- `src/components/ui/`: componentes no padrão shadcn/ui (Tailwind + Radix): `button`, `form` (Field, Input, NativeSelect, MoneyInput), `display` (Card, Badge, Segmented, EmptyState, Skeleton), `overlays` (Sheet, ConfirmDialog, DropdownMenu), `toast`.
 - `src/components/CommercePages.tsx`: orçamentos, pedidos, exportação PDF.
 - `src/lib/domain.ts`: validações e regras puras; `quoteMath.ts`: valores em centavos; `supabase.ts`: cliente.
-- `src/style.css`, `src/editor.css`, `src/commerce.css`: estilos (tema claro).
-- `src/dark.css`: tema escuro GERADO por `scripts/gen-dark-theme.mjs`; não editar à mão. `src/theme.ts` + script em `index.html` definem `html[data-theme]`.
+- `src/index.css`: Tailwind v4 + tokens de cor claro/escuro (logo: índigo `#363890`, laranja `#ff862b`). Estilize com classes Tailwind e tokens (`bg-card`, `text-muted-foreground`, `text-brand`…), nunca cores soltas. `src/theme.ts` + script em `index.html` definem `html[data-theme]`.
 - `supabase/migrations/`: estrutura inicial; `supabase/schema_snapshot.sql`: snapshot de conciliação (não é migration incremental).
 - `tests/*.test.mjs`: unitários; `tests/e2e/`: Playwright; `support/mockSupabase.ts`: API simulada.
 - `vite.config.ts`, `vercel.json`, `playwright.config.ts`, `tsconfig.json`: configuração.
@@ -48,7 +48,9 @@ O CI em `.github/workflows/ci.yml` roda `npm install --no-audit --no-fund`, cobe
 - Acesso a dados depende de Supabase Auth + associação a `public.app_members` + RLS, e não só da tela de login.
 - Registros são arquivados por `archived_at`, não eliminados do histórico; itens arquivados não participam de novas movimentações/propostas.
 - Pedido aprovado/concluído NÃO movimenta estoque automaticamente. A saída é registrada à parte.
-- Formulários responsivos usam `EditorSheet` (drawer desktop; tela cheia mobile) e apresentam erros na interface.
+- Formulários responsivos usam `Sheet` de `src/components/ui/overlays.tsx` (drawer desktop; tela cheia mobile), `Field` com `id`/rótulo e `FormError` para erros; confirmações usam `ConfirmDialog` (role `alertdialog`).
+- Selects continuam nativos (`NativeSelect`): melhor no celular e compatíveis com os testes (`selectOption`).
+- Nada pode alargar a página no celular: itens de grid/flex com texto truncado precisam de `min-w-0` (`tests/e2e/layout.spec.ts` verifica 360 e 412 px).
 - Novas regras puras: testar com `node:test`; novas jornadas: Playwright desktop/mobile, usando mocks sem dados reais.
 
 ## Nunca faça
