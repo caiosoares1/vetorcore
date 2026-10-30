@@ -1,6 +1,6 @@
 import {useContext,useState,type ReactNode} from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import {ArrowDownUp,ChevronRight,ClipboardList,FileText,LayoutDashboard,LogOut,MoreHorizontal,Package,RefreshCw,ShieldCheck,Truck,Users,type LucideIcon} from 'lucide-react';
+import {ArrowDownUp,Calculator,ChevronRight,ClipboardList,FileText,LayoutDashboard,LogOut,MoreHorizontal,Package,RefreshCw,ShieldCheck,Truck,Users,type LucideIcon} from 'lucide-react';
 import {AccountContext} from '../AuthGate';
 import ThemeToggle from './ThemeToggle';
 import {Badge} from './ui/display';
@@ -8,12 +8,13 @@ import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,Drop
 import {cn} from '../lib/utils';
 import type {MemberRole} from '../lib/domain';
 
-export type Page='home'|'products'|'quotes'|'orders'|'suppliers'|'customers'|'moves'|'users';
+export type Page='home'|'products'|'quotes'|'calculator'|'orders'|'suppliers'|'customers'|'moves'|'users';
 type PageInfo={label:string;title:string;description:string;Icon:LucideIcon;group:string};
 
 export const PAGES:Record<Page,PageInfo>={
  home:{label:'Início',title:'Início',description:'Visão geral da operação da Vetor Embalagens.',Icon:LayoutDashboard,group:'Visão geral'},
  quotes:{label:'Orçamentos',title:'Orçamentos',description:'Propostas comerciais, aprovação e conversão em pedidos.',Icon:FileText,group:'Comercial'},
+ calculator:{label:'Calculadora',title:'Calculadora de sacolas',description:'Preço de sacolas impressas por tamanho, espessura, fornecedor, cores e quantidade.',Icon:Calculator,group:'Comercial'},
  orders:{label:'Pedidos',title:'Pedidos',description:'Acompanhe pedidos aprovados e sua conclusão.',Icon:ClipboardList,group:'Comercial'},
  customers:{label:'Clientes',title:'Clientes',description:'Cadastre e organize seus contatos comerciais.',Icon:Users,group:'Comercial'},
  products:{label:'Produtos',title:'Produtos',description:'Gerencie preços, categorias, medidas e quantidades.',Icon:Package,group:'Operação'},
@@ -23,7 +24,7 @@ export const PAGES:Record<Page,PageInfo>={
 };
 const GROUPS:{label:string;pages:Page[]}[]=[
  {label:'Visão geral',pages:['home']},
- {label:'Comercial',pages:['quotes','orders','customers']},
+ {label:'Comercial',pages:['quotes','calculator','orders','customers']},
  {label:'Operação',pages:['products','moves','suppliers']},
  {label:'Administração',pages:['users']}
 ];
