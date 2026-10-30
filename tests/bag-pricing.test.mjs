@@ -1,33 +1,38 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {bagQuote,printCostPerThousand,materialPerThousand,lotFor,kgPerThousand,BAG_PRESETS,DEFAULT_PRINT_COSTS,LOT_SIZES} from '../src/lib/bagPricing.ts';
+import {bagQuote,printCostPerThousand,materialPerThousand,lotFor,kgPerThousand,BAG_PRESETS,LOT_SIZES,MATERIAL_SUPPLIERS,DEFAULT_MATERIAL_SUPPLIER} from '../src/lib/bagPricing.ts';
 
-// Preços calculados pela própria planilha (docs/planilhas/tabela-sacolas-2026-precos.csv), fornecedor a R$ 40/kg.
+// Parâmetros vigentes quando a fórmula foi transcrita (out/2026). Ficam fixos aqui de propósito:
+// os padrões do código podem mudar (tinta, mão de obra, margem…) sem quebrar esta conferência da fórmula.
+const PARAMS_2026={costs:{laborMonthly:3500,hoursPerThousand:2,ink:140,solvent:1,energyPerHour:1.2,oneColorExtra:4},margin:0.35,pricePerKg:40};
+
+// 340 preços de referência calculados com PARAMS_2026 (tabela de 2026, já validada pela operação).
 const rows=readFileSync(new URL('./fixtures/tabela-sacolas-2026-precos.csv',import.meta.url),'utf8').trim().split('\n').slice(1).map(line=>{
  const [model,size,thickness,quantity,colors,price]=line.split(',');
  const [width,height]=size.split('x').map(Number);
  return {model,width,height,thickness:Number(thickness),quantity:Number(quantity),colors:Number(colors),cents:Math.round(Number(price)*100)};
 });
 
-test('reproduz exatamente os 340 preços da planilha 2026',()=>{
+test('a fórmula reproduz exatamente os 340 preços de referência de 2026',()=>{
  assert.equal(rows.length,340);
  for(const r of rows){
-  const q=bagQuote({width:r.width,height:r.height,thickness:r.thickness,pricePerKg:40,colors:r.colors,quantity:r.quantity});
+  const q=bagQuote({width:r.width,height:r.height,thickness:r.thickness,colors:r.colors,quantity:r.quantity,...PARAMS_2026});
   assert.equal(q.totalCents,r.cents,`${r.model} ${r.width}x${r.height} ${r.colors} cor(es) ${r.quantity} un.: centavos`);
  }
 });
 
-test('custo de impressão por mil segue a Plan1, com adicional só em 1 cor',()=>{
- assert.equal(printCostPerThousand(1).toFixed(2),'176.57');
- assert.equal(printCostPerThousand(2).toFixed(2),'345.13');
- assert.equal(printCostPerThousand(4).toFixed(2),'690.27');
- assert.equal(printCostPerThousand(1,{...DEFAULT_PRINT_COSTS,ink:200}).toFixed(2),'236.57');
+test('custo de impressão por mil, com adicional só em 1 cor',()=>{
+ assert.equal(printCostPerThousand(1,PARAMS_2026.costs).toFixed(2),'176.57');
+ assert.equal(printCostPerThousand(2,PARAMS_2026.costs).toFixed(2),'345.13');
+ assert.equal(printCostPerThousand(4,PARAMS_2026.costs).toFixed(2),'690.27');
+ assert.ok(printCostPerThousand(1)>0);
+ assert.equal(printCostPerThousand(1,{...PARAMS_2026.costs,ink:200}).toFixed(2),'236.57');
  for(const c of [0,5,1.5,NaN])assert.throws(()=>printCostPerThousand(c),/cores/);
 });
 
 test('espessura e preço do kg mudam o preço (Alça C 30x40, 1 cor, 1.000 un.)',()=>{
- const base={width:30,height:40,pricePerKg:40,colors:1,quantity:1000};
+ const base={...PARAMS_2026,width:30,height:40,colors:1,quantity:1000};
  assert.equal(bagQuote({...base,thickness:0.01}).totalCents,91503);
  assert.equal(bagQuote({...base,thickness:0.011}).totalCents,98887);
  assert.equal(bagQuote({...base,thickness:0.012}).totalCents,106272);
@@ -36,7 +41,7 @@ test('espessura e preço do kg mudam o preço (Alça C 30x40, 1 cor, 1.000 un.)'
 });
 
 test('quantidade: maior lote que cabe ÷ tamanho do lote × quantidade',()=>{
- const base={width:30,height:40,thickness:0.011,pricePerKg:40,colors:1};
+ const base={...PARAMS_2026,width:30,height:40,thickness:0.011,colors:1};
  const milheiro=bagQuote({...base,quantity:1000});
  const lote500=milheiro.lots.find(l=>l.size===500).price;
  assert.equal(bagQuote({...base,quantity:3000}).totalCents,Math.round(milheiro.lots[0].price*3*100));
@@ -74,4 +79,9 @@ test('tamanhos da planilha estão todos cadastrados, sem repetição',()=>{
  assert.equal(new Set(BAG_PRESETS.map(p=>p.id)).size,17);
  const fromCsv=new Set(rows.map(r=>r.model+r.width+'x'+r.height+r.thickness));
  for(const p of BAG_PRESETS)assert.ok(fromCsv.has(p.model+p.width+'x'+p.height+p.thickness),p.id);
+});
+
+test('fornecedores de material de referência e o padrão',()=>{
+ assert.deepEqual(MATERIAL_SUPPLIERS.map(s=>s.name+':'+s.pricePerKg),['2 IRMÃO:40','MAIN:40','TECNOPLAST:43','TOTAL MAIS:35']);
+ assert.ok(MATERIAL_SUPPLIERS.some(s=>s.id===DEFAULT_MATERIAL_SUPPLIER));
 });

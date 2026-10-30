@@ -1,27 +1,35 @@
-// Preço de sacolas plásticas impressas, reproduzindo a planilha
-// docs/planilhas/tabela-sacolas-plasticas-2026.xlsx (ver docs/planilhas/tabela-sacolas-2026.md).
+// Preço de sacolas plásticas impressas. ESTE ARQUIVO É A REFERÊNCIA DE PREÇO: a planilha
+// "Tabela de sacolas plásticas 2026" que existia antes foi transcrita aqui e não é mais usada.
+// Para mudar custos, margem ou preços do kg, altere as constantes abaixo (ou ajuste na tela da
+// calculadora para uma simulação). Ver ADR-0007.
 //
-// Preço do milheiro = custo de impressão por mil (Plan1) + material por mil com margem (Plan2).
-// Lotes menores (500, 250, 125, 60) = lote anterior ÷ 1,6 (Plan3).
-// Quantidade qualquer = preço do maior lote que caiba na quantidade ÷ tamanho do lote × quantidade
-// (ex.: 3.000 = milheiro × 3; 700 = lote de 500 ÷ 500 × 700).
+// 1) Impressão de 1.000 sacolas:
+//    horas = 0,12 min por sacola × 1.000 ÷ 60 = 2 h
+//    base  = mão de obra (salário ÷ 30 dias ÷ 8 h × horas) + tinta + solvente + energia por hora × horas
+//    1 cor = base + adicional de energia; 2 a 4 cores = base × número de cores (sem o adicional).
+// 2) Material de 1.000 sacolas:
+//    kg por mil = largura (cm) × altura (cm) × espessura (mm)
+//    preço      = kg por mil × R$/kg do fornecedor ÷ (1 − margem)
+// 3) Milheiro = impressão + material. Lotes menores: 500, 250, 125 e 60 = lote anterior ÷ 1,6.
+// 4) Quantidade qualquer = preço do maior lote que caiba na quantidade ÷ tamanho do lote × quantidade
+//    (ex.: 3.000 = milheiro × 3; 700 = lote de 500 ÷ 500 × 700). Abaixo de 60, usa o lote de 60.
 
 export type PrintCosts={
  /** Salário mensal usado no rateio da mão de obra (R$). */
  laborMonthly:number;
- /** Horas de máquina para imprimir 1.000 sacolas. */
+ /** Horas de máquina para imprimir 1.000 sacolas (0,12 min por sacola). */
  hoursPerThousand:number;
  /** Tinta por mil (R$). */
  ink:number;
- /** Solvente por mil (R$). */
+ /** Solvente por mil (R$): quantidade prevista (50) ÷ 50. */
  solvent:number;
  /** Energia por hora de máquina (R$). */
  energyPerHour:number;
- /** Adicional de energia cobrado só na impressão de 1 cor, como na planilha (R$). */
+ /** Adicional de energia cobrado só na impressão de 1 cor (R$ 40 ÷ 10). */
  oneColorExtra:number;
 };
 
-/** Valores da planilha 2026 (Plan1). */
+/** Custos de impressão atuais (valores de 2026). */
 export const DEFAULT_PRINT_COSTS:PrintCosts={laborMonthly:3500,hoursPerThousand:2,ink:140,solvent:1,energyPerHour:1.2,oneColorExtra:4};
 /** Margem aplicada sobre o preço do material: preço = custo ÷ (1 − margem). */
 export const DEFAULT_MARGIN=0.35;
@@ -29,10 +37,20 @@ export const LOT_SIZES=[1000,500,250,125,60] as const;
 export const LOT_DIVISOR=1.6;
 export const MAX_COLORS=4;
 
+/** Preço do kg de sacola por fornecedor de material (referência de 2026). Os fornecedores cadastrados no app com "Preço por kg" também aparecem na calculadora. */
+export const MATERIAL_SUPPLIERS=[
+ {id:'2irmao',name:'2 IRMÃO',pricePerKg:40},
+ {id:'main',name:'MAIN',pricePerKg:40},
+ {id:'tecnoplast',name:'TECNOPLAST',pricePerKg:43},
+ {id:'totalmais',name:'TOTAL MAIS',pricePerKg:35}
+] as const;
+/** Fornecedor de material padrão da calculadora. */
+export const DEFAULT_MATERIAL_SUPPLIER='2irmao';
+
 export type BagModel='Alça C / boca de palhaço'|'Camiseta';
 export type BagPreset={id:string;model:BagModel;width:number;height:number;thickness:number};
 const preset=(model:BagModel,width:number,height:number,thickness:number):BagPreset=>({id:(model==='Camiseta'?'cam':'alc')+'-'+width+'x'+height,model,width,height,thickness});
-/** Tamanhos da planilha, com a espessura usada no cálculo de cada linha (referência; varia por fornecedor). */
+/** Tamanhos padrão, com a espessura de referência de cada um (a espessura real varia por fornecedor: normal 0,010 mm, até 0,012 mm). */
 export const BAG_PRESETS:BagPreset[]=[
  preset('Alça C / boca de palhaço',17,24,0.011),
  preset('Alça C / boca de palhaço',15,25,0.01),
