@@ -209,3 +209,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .invite-status.status-ativo{background:#e8f6ee;color:#1f6f43}
 .invite-status.status-usado{background:#eeeff9;color:var(--brand)}
 @media(max-width:740px){.invite-form{grid-template-columns:1fr 1fr}.invite-form .invite-note,.invite-form button{grid-column:1/-1}.invite-created code{font-size:17px;letter-spacing:1px}.member-record .record-actions,.invite-record .record-actions{width:100%;justify-content:flex-end}}
+/* Tema */
+.header-actions{display:flex;align-items:center;gap:10px}
+.theme-toggle{border-radius:50%;width:42px;height:42px;min-height:42px}
+.login-shell{position:relative}
+.login-theme{position:absolute;top:16px;right:16px}

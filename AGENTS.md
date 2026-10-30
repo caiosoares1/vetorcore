@@ -17,6 +17,7 @@ Requer Node.js 22+ (README e CI). Gerenciador: npm; o repositório não contém 
 | Todos os unitários | `npm run test` |
 | Unitários com cobertura e limites | `npm run test:coverage` |
 | Um arquivo unitário | `node --experimental-strip-types --test tests/domain.test.mjs` |
+| Regenerar tema escuro | `npm run theme:dark` (após mudar cores nos CSS) |
 | Instalar Chromium para testes | `npx playwright install chromium` |
 | Todos os testes de navegador | `npm run test:e2e` |
 | Um arquivo E2E | `npx playwright test tests/e2e/full-flow.spec.ts` |
@@ -33,7 +34,8 @@ O CI em `.github/workflows/ci.yml` roda `npm install --no-audit --no-fund`, cobe
 - `src/components/EditorSheet.tsx`: drawer web/tela cheia mobile.
 - `src/components/CommercePages.tsx`: orçamentos, pedidos, exportação PDF.
 - `src/lib/domain.ts`: validações e regras puras; `quoteMath.ts`: valores em centavos; `supabase.ts`: cliente.
-- `src/style.css`, `src/editor.css`, `src/commerce.css`: estilos.
+- `src/style.css`, `src/editor.css`, `src/commerce.css`: estilos (tema claro).
+- `src/dark.css`: tema escuro GERADO por `scripts/gen-dark-theme.mjs`; não editar à mão. `src/theme.ts` + script em `index.html` definem `html[data-theme]`.
 - `supabase/migrations/`: estrutura inicial; `supabase/schema_snapshot.sql`: snapshot de conciliação (não é migration incremental).
 - `tests/*.test.mjs`: unitários; `tests/e2e/`: Playwright; `support/mockSupabase.ts`: API simulada.
 - `vite.config.ts`, `vercel.json`, `playwright.config.ts`, `tsconfig.json`: configuração.

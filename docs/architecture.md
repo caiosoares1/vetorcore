@@ -41,6 +41,10 @@ Criação de conta e papéis (ADR-0005, migration `0003_member_access.sql`): qua
 
 `CommercePages.tsx` lista `quotes` com `quote_items` e `orders`. `src/lib/domain.ts` valida clientes/produtos ativos, quantidades, descontos e duplicatas; `quoteMath.ts` manipula centavos. A criação é transacional no banco e congela os nomes/preços dos itens no orçamento. A proposta pode mudar de status; somente orçamento aprovado e ainda não convertido permite criar pedido. O pedido pode ser concluído. **Nenhum desses passos baixa o estoque automaticamente.** jsPDF gera o PDF no navegador, sem serviço de armazenamento externo.
 
+## Tema claro/escuro
+
+O tema efetivo fica em `<html data-theme="light|dark">`. A preferência (Sistema, Claro ou Escuro) é por aparelho, em `localStorage` (`vetor.theme`), e é alternada pelo botão no cabeçalho e na tela de login (`src/components/ThemeToggle.tsx`, `src/theme.ts`). Um script em `index.html` aplica o tema antes do React para não piscar em claro. `src/dark.css` é gerado por `scripts/gen-dark-theme.mjs` a partir dos três CSS claros: cada cor é remapeada em OKLCH conforme o papel (fundo, texto, borda, sombra) e as declarações são copiadas sob `:root[data-theme="dark"]` para preservar a cascata. `tests/dark-theme.test.mjs` falha se o arquivo estiver desatualizado e verifica contraste AA dos textos principais.
+
 ## Infraestrutura, testes e segurança
 
 - `vite.config.ts`: React + `vite-plugin-pwa`; `vercel.json`: build `npm run build`/saída `dist` e fallback de navegação.

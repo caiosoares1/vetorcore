@@ -4,6 +4,7 @@ import {supabase} from './lib/supabase';
 import RecordEditor,{type Product,type Party,type Movement,type EditorTarget} from './components/RecordEditor';
 import CommercePages from './components/CommercePages';
 import UsersPage from './components/UsersPage';
+import ThemeToggle from './components/ThemeToggle';
 import {MemberRoleContext} from './AuthGate';
 import {inventoryStats,errorMessage,bagSpecLabel,productMargin} from './lib/domain';
 
@@ -101,7 +102,7 @@ export default function App(){
      <div className="sidebar-note"><span className="sync-indicator"/> Dados conectados ao Supabase<br/>Acesso protegido</div>
    </aside>
    <div className="main">
-     <header><div><span className="overline">VETOR EMBALAGENS / GESTÃO</span><h1>{current.label}</h1></div><span className="avatar" title="Vetor Hub">VH</span></header>
+     <header><div><span className="overline">VETOR EMBALAGENS / GESTÃO</span><h1>{current.label}</h1></div><div className="header-actions"><ThemeToggle/><span className="avatar" title="Vetor Hub">VH</span></div></header>
      <main className="workspace">
        {error&&<div className="app-error" role="alert"><AlertCircle size={19}/><span>{error}</span><button type="button" onClick={()=>setError('')} aria-label="Fechar aviso"><X size={16}/></button></div>}
        {toast&&<div className="app-toast" role="status"><CheckCircle2 size={19}/><span>{toast}</span><button type="button" aria-label="Dispensar" onClick={()=>setToast('')}><X size={16}/></button></div>}

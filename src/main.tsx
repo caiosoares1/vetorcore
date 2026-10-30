@@ -5,7 +5,11 @@ import AuthGate from './AuthGate';
 import './style.css';
 import './editor.css';
 import './commerce.css';
+import './dark.css';
+import { initTheme } from './theme';
 import { registerSW } from 'virtual:pwa-register';
+
+initTheme();
 
 function showUpdateBanner(onUpdate: () => void) {
   if (document.getElementById('pwa-update-banner')) return;
