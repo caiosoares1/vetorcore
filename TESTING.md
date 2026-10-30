@@ -9,7 +9,7 @@ A suíte é executada no GitHub Actions em cada push e pull request para `main`.
 | Unitária + cobertura | `npm run test:coverage` | Funções realmente importadas pelo app em `src/lib/domain.ts` e `src/lib/quoteMath.ts`. O CI aplica mínimos de 95% de linhas, 80% de branches e 95% de funções. |
 | Compilação | `npm run build` | TypeScript estrito, dependências e geração da PWA. |
 | Interface e fluxos | `npm run test:e2e` | Playwright/Chromium em viewport desktop e perfil mobile Pixel 7; rede Supabase interceptada. |
-| Integração SQL | Testes transacionais manuais no projeto Supabase | Cobrem permissões/RLS, estoque, orçamentos, pedidos e arquivamento usando `BEGIN ... ROLLBACK`. Não fazem parte do CI, pois dependem de instância Postgres/Supabase autorizada. |
+| Integração SQL | `scripts/sql/test_0004.sql` e testes transacionais manuais | Cobrem permissões/RLS, estoque, orçamentos, pedidos e arquivamento usando `BEGIN ... ROLLBACK`. Não fazem parte do CI, pois dependem de instância Postgres/Supabase autorizada. |
 
 ## Mapa de cobertura
 
@@ -20,6 +20,7 @@ A suíte é executada no GitHub Actions em cada push e pull request para `main`.
 - **Estoque:** entradas, saídas, saldo atualizado, histórico, limite de estoque, rejeição de saldo negativo e quantidades inválidas.
 - **Arquivamento:** ocultar, restaurar, manter histórico, impedir operação com registros inativos (na camada SQL).
 - **Calculadora de sacolas:** `tests/bag-pricing.test.mjs` reproduz exatamente os 340 preços de referência de 2026 (com os parâmetros de 2026 fixados no teste) e cobre espessura, R$/kg, cores, margem, lotes e quantidades fora do lote; `tests/e2e/calculator.spec.ts` cobre a tela.
+- **Custos e itens personalizados (0004):** `scripts/sql/test_0004.sql` (BEGIN … ROLLBACK) cobre RLS/permissões de `bag_pricing_settings`, RPC só para admin, faixas válidas, item personalizado com total exato, validações e total do pedido; rodar só em ambiente isolado. E2E: admin salva custos, membro só simula, banco sem a tabela, sacola → orçamento → pedido → PDF.
 - **Orçamentos:** seleção de cliente/produtos, quantidades, descontos, recusa de duplicados/arquivados, status e geração de PDF.
 - **Pedidos:** conversão somente após aprovação, bloqueio de duplicações (SQL), total, conclusão.
 - **Dashboard:** indicadores e exclusão de produtos arquivados.

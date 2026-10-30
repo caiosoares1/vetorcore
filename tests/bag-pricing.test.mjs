@@ -85,3 +85,25 @@ test('fornecedores de material de referência e o padrão',()=>{
  assert.deepEqual(MATERIAL_SUPPLIERS.map(s=>s.name+':'+s.pricePerKg),['2 IRMÃO:40','MAIN:40','TECNOPLAST:43','TOTAL MAIS:35']);
  assert.ok(MATERIAL_SUPPLIERS.some(s=>s.id===DEFAULT_MATERIAL_SUPPLIER));
 });
+
+test('custos salvos no banco: centavos e % viram reais e fração, e voltam iguais para a RPC',async()=>{
+ const {settingsFromRow,settingsToRpc,DEFAULT_SETTINGS}=await import('../src/lib/bagPricing.ts');
+ const row={labor_monthly_cents:350000,hours_per_thousand:'2.0000',ink_cents:14000,solvent_cents:100,energy_per_hour_cents:120,one_color_extra_cents:400,margin_pct:'35.00'};
+ const s=settingsFromRow(row);
+ assert.deepEqual(s,DEFAULT_SETTINGS);
+ assert.deepEqual(settingsToRpc(s),{p_labor_monthly_cents:350000,p_hours_per_thousand:2,p_ink_cents:14000,p_solvent_cents:100,p_energy_per_hour_cents:120,p_one_color_extra_cents:400,p_margin_pct:35});
+ assert.equal(settingsToRpc({...s,margin:0.3333}).p_margin_pct,33.33);
+ assert.throws(()=>settingsFromRow({...row,ink_cents:'abc'}),/tinta/);
+ assert.throws(()=>settingsFromRow({...row,margin_pct:-1}),/margem/);
+ assert.throws(()=>settingsToRpc({...s,margin:1}),/Margem/);
+ assert.throws(()=>settingsToRpc({...s,costs:{...s.costs,hoursPerThousand:0}}),/Horas/);
+ assert.throws(()=>settingsToRpc({...s,costs:{...s.costs,ink:-1}}),/Tinta fora do limite/);
+ assert.throws(()=>settingsToRpc({...s,costs:{...s.costs,laborMonthly:NaN}}),/Mão de obra/);
+});
+
+test('descrição da sacola para o orçamento',async()=>{
+ const {bagLineDescription}=await import('../src/lib/bagPricing.ts');
+ assert.equal(bagLineDescription({width:30,height:40,thickness:0.011,colors:1},'Alça C / boca de palhaço'),'Sacola alça C / boca de palhaço 30x40 cm, 0,011 mm, 1 cor');
+ assert.equal(bagLineDescription({width:40,height:60,thickness:0.006,colors:2},'Camiseta'),'Sacola camiseta 40x60 cm, 0,006 mm, 2 cores');
+ assert.equal(bagLineDescription({width:30.5,height:40,thickness:0.0125,colors:4}),'Sacola 30,5x40 cm, 0,0125 mm, 4 cores');
+});

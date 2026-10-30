@@ -37,3 +37,13 @@ test('frete soma ao total e não entra no limite do desconto',()=>{
  assert.throws(()=>quoteTotals([{quantity:1,unitPriceCents:100}],0,1.5));
  assert.throws(()=>quoteTotals([{quantity:1,unitPriceCents:100}],0,Number.MAX_SAFE_INTEGER));
 });
+
+test('linha com total exato (sacola calculada) usa o total, não quantidade × unitário',async()=>{
+ const {lineTotal}=await import('../src/lib/quoteMath.ts');
+ assert.equal(lineTotal({quantity:1000,unitPriceCents:99,lineTotalCents:98887}),98887);
+ assert.equal(lineTotal({quantity:3,unitPriceCents:1200}),3600);
+ assert.equal(lineTotal({quantity:3,unitPriceCents:1200,lineTotalCents:null}),3600);
+ assert.deepEqual(quoteTotals([{quantity:700,unitPriceCents:124,lineTotalCents:86527},{quantity:3,unitPriceCents:1200}],500,1500),{subtotal:90127,total:91127});
+ for(const bad of [-1,1.5,Number.MAX_SAFE_INTEGER+1])assert.throws(()=>lineTotal({quantity:1,unitPriceCents:1,lineTotalCents:bad}),/Item inválido/);
+ assert.throws(()=>lineTotal({quantity:Number.MAX_SAFE_INTEGER,unitPriceCents:2}),/limite/);
+});

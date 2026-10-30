@@ -34,7 +34,7 @@ O CI em `.github/workflows/ci.yml` roda `npm install --no-audit --no-fund`, cobe
 - `src/components/Dashboard.tsx`, `src/components/Records.tsx`: início e linhas de listas (produto, pessoa, histórico).
 - `src/components/ui/`: componentes no padrão shadcn/ui (Tailwind + Radix): `button`, `form` (Field, Input, NativeSelect, MoneyInput), `display` (Card, Badge, Segmented, EmptyState, Skeleton), `overlays` (Sheet, ConfirmDialog, DropdownMenu), `toast`.
 - `src/components/CommercePages.tsx`: orçamentos, pedidos, exportação PDF.
-- `src/components/BagCalculator.tsx` + `src/lib/bagPricing.ts`: calculadora de preço de sacolas impressas. `bagPricing.ts` é a referência de preço (fórmulas, custos, margem, fornecedores de material); não existe mais planilha (ADR-0007).
+- `src/components/BagCalculator.tsx` + `src/lib/bagPricing.ts`: calculadora de preço de sacolas impressas. `bagPricing.ts` tem as fórmulas e os custos padrão; os custos em uso vêm de `bag_pricing_settings` (admin altera na tela) e o R$/kg do cadastro de fornecedores (ADR-0007, ADR-0008).
 - `src/lib/domain.ts`: validações e regras puras; `quoteMath.ts`: valores em centavos; `supabase.ts`: cliente.
 - `src/index.css`: Tailwind v4 + tokens de cor claro/escuro (logo: índigo `#363890`, laranja `#ff862b`). Estilize com classes Tailwind e tokens (`bg-card`, `text-muted-foreground`, `text-brand`…), nunca cores soltas. `src/theme.ts` + script em `index.html` definem `html[data-theme]`.
 - `supabase/migrations/`: estrutura inicial; `supabase/schema_snapshot.sql`: snapshot de conciliação (não é migration incremental).
@@ -43,7 +43,8 @@ O CI em `.github/workflows/ci.yml` roda `npm install --no-audit --no-fund`, cobe
 - `src/data.ts`: modelos/dados demonstrativos antigos; aparente legado — não usar como fonte do estado atual sem verificar.
 
 ## Convenções de domínio e integração
-- Preço de sacola impressa: usar `bagQuote` de `src/lib/bagPricing.ts`. Mudança de custo, margem ou R$/kg: alterar as constantes desse arquivo (os testes fixam os parâmetros de 2026 e não quebram). Mudança na **fórmula**: atualizar o comentário do topo do arquivo, o ADR-0007 e os testes; `tests/bag-pricing.test.mjs` confere 340 preços de referência de 2026 (`tests/fixtures/`).
+- Preço de sacola impressa: usar `bagQuote` de `src/lib/bagPricing.ts`. Custos e margem são alterados por um admin na tela (tabela `bag_pricing_settings`); R$/kg no cadastro do fornecedor. Os padrões do código só valem sem a tabela. Os testes fixam os parâmetros de 2026. Mudança na **fórmula**: atualizar o comentário do topo do arquivo, o ADR-0007 e os testes; `tests/bag-pricing.test.mjs` confere 340 preços de referência de 2026 (`tests/fixtures/`).
+- Item de orçamento pode ser produto (`product_id`) ou personalizado (`description` + `line_total_cents`, total exato da linha). Total de linha: `lineTotal` de `quoteMath.ts`; nunca recalcular como quantidade × unitário quando houver `line_total_cents`.
 - Valores monetários no banco são inteiros `*_cents`. Converter/validar com `src/lib/quoteMath.ts` e `src/lib/domain.ts`; não calcular totais em float para persistência.
 - Cadastros usam `supabase.from(...)`; estoque e orçamentos/pedidos críticos usam `supabase.rpc(...)`.
 - Quantidade de produtos é modificada via `record_stock_movement`; preservar registro de histórico e checagem de saldo negativo.
@@ -62,6 +63,7 @@ O CI em `.github/workflows/ci.yml` roda `npm install --no-audit --no-fund`, cobe
 - Não atualizar `products.qty` diretamente, nem registrar movimentação sem histórico.
 - Não reativar a demo/localStorage de `src/data.ts` como fonte de dados de produção.
 - Não tratar Playwright com Supabase simulado como teste real de banco ou de segurança.
+- Não publicar frontend que dependa de migration ainda não aplicada (0004: aplicar antes do deploy).
 - Não editar/commitar `dist/`, `node_modules/` nem artefatos gerados. `test-results/` e `playwright-report/` são artefatos de testes, não código.
 - Não presumir que Vercel Hobby autoriza uso comercial: o README alerta sobre a restrição.
 
