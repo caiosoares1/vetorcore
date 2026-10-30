@@ -34,6 +34,7 @@ O CI em `.github/workflows/ci.yml` roda `npm install --no-audit --no-fund`, cobe
 - `src/components/Dashboard.tsx`, `src/components/Records.tsx`: início e linhas de listas (produto, pessoa, histórico).
 - `src/components/ui/`: componentes no padrão shadcn/ui (Tailwind + Radix): `button`, `form` (Field, Input, NativeSelect, MoneyInput), `display` (Card, Badge, Segmented, EmptyState, Skeleton), `overlays` (Sheet, ConfirmDialog, DropdownMenu), `toast`.
 - `src/components/CommercePages.tsx`: orçamentos, pedidos, exportação PDF.
+- `src/components/BagCalculator.tsx` + `src/lib/bagPricing.ts`: calculadora de preço de sacolas impressas (regra da planilha 2026; ADR-0007).
 - `src/lib/domain.ts`: validações e regras puras; `quoteMath.ts`: valores em centavos; `supabase.ts`: cliente.
 - `src/index.css`: Tailwind v4 + tokens de cor claro/escuro (logo: índigo `#363890`, laranja `#ff862b`). Estilize com classes Tailwind e tokens (`bg-card`, `text-muted-foreground`, `text-brand`…), nunca cores soltas. `src/theme.ts` + script em `index.html` definem `html[data-theme]`.
 - `supabase/migrations/`: estrutura inicial; `supabase/schema_snapshot.sql`: snapshot de conciliação (não é migration incremental).
@@ -42,6 +43,7 @@ O CI em `.github/workflows/ci.yml` roda `npm install --no-audit --no-fund`, cobe
 - `src/data.ts`: modelos/dados demonstrativos antigos; aparente legado — não usar como fonte do estado atual sem verificar.
 
 ## Convenções de domínio e integração
+- Preço de sacola impressa: usar `bagQuote` de `src/lib/bagPricing.ts`; `tests/bag-pricing.test.mjs` exige que os 340 preços da planilha (fixture em `tests/fixtures/`) continuem idênticos. Mudou a regra? Atualize a planilha/fixture e o ADR-0007 juntos.
 - Valores monetários no banco são inteiros `*_cents`. Converter/validar com `src/lib/quoteMath.ts` e `src/lib/domain.ts`; não calcular totais em float para persistência.
 - Cadastros usam `supabase.from(...)`; estoque e orçamentos/pedidos críticos usam `supabase.rpc(...)`.
 - Quantidade de produtos é modificada via `record_stock_movement`; preservar registro de histórico e checagem de saldo negativo.

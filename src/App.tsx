@@ -5,6 +5,7 @@ import RecordEditor,{type Product,type Party,type Movement,type EditorTarget} fr
 import CommercePages from './components/CommercePages';
 import UsersPage from './components/UsersPage';
 import Dashboard from './components/Dashboard';
+import BagCalculator from './components/BagCalculator';
 import Shell,{type Page} from './components/Shell';
 import {HistoryRow,PartyRow,ProductRow,SearchBox} from './components/Records';
 import {Button} from './components/ui/button';
@@ -99,6 +100,8 @@ export default function App(){
    content=<Dashboard products={products} movements={movements} loading={loading} refreshing={refreshing} syncedAt={syncedAt} onRefresh={()=>void refresh(true)}
      onNewProduct={()=>{navigate('products');setEditor({kind:'product'});}} onOpenStock={()=>navigate('moves')} onNewCustomer={()=>{navigate('customers');setEditor({kind:'party',table:'customers'});}}
      onNewQuote={()=>{navigate('quotes');setPendingQuote(true);}} onRestock={p=>move(p,'Entrada')} onSeeProducts={()=>{navigate('products');setLowOnly(true);}}/>;
+ }else if(page==='calculator'){
+   content=<BagCalculator suppliers={suppliers} onNotice={setToast}/>;
  }else if(page==='users'&&role==='admin'){
    content=<UsersPage onNotice={setToast}/>;
  }else if(page==='quotes'||page==='orders'){
