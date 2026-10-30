@@ -12,23 +12,30 @@ test('segue o tema escuro do aparelho desde a tela de login',async({page})=>{
  expect(background).not.toBe('rgb(255, 255, 255)');
 });
 
-test('alterna Sistema → Claro → Escuro e lembra a escolha após recarregar',async({page})=>{
+test('alterna entre claro e escuro e lembra a escolha após recarregar',async({page})=>{
  await page.emulateMedia({colorScheme:'light'});
  await mockBackend(page);
  await loginAsMockUser(page);
  await expect(page.getByText('Bem-vindo ao Vetor Hub.')).toBeVisible();
- const toggle=page.locator('header').getByRole('button',{name:/^Tema:/});
- await expect(toggle).toHaveAttribute('aria-label',/Tema: Sistema/);
- await toggle.click();
- await expect(toggle).toHaveAttribute('aria-label',/Tema: Claro/);
  expect(await theme(page)).toBe('light');
- await toggle.click();
- await expect(toggle).toHaveAttribute('aria-label',/Tema: Escuro/);
+ await page.locator('header').getByRole('button',{name:'Ativar tema escuro'}).click();
  expect(await theme(page)).toBe('dark');
  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#1d1f22');
  await page.reload();
  expect(await theme(page)).toBe('dark');
- await toggle.click();
- await expect(toggle).toHaveAttribute('aria-label',/Tema: Sistema/);
+ // A escolha salva vale mesmo que o aparelho esteja em claro.
+ await page.locator('header').getByRole('button',{name:'Ativar tema claro'}).click();
  expect(await theme(page)).toBe('light');
+ await page.emulateMedia({colorScheme:'dark'});
+ await page.reload();
+ expect(await theme(page)).toBe('light');
+});
+
+test('tela de login também permite trocar o tema',async({page})=>{
+ await page.emulateMedia({colorScheme:'dark'});
+ await mockBackend(page);
+ await page.goto('/');
+ await page.getByRole('button',{name:'Ativar tema claro'}).click();
+ expect(await theme(page)).toBe('light');
+ await expect(page.getByRole('button',{name:'Ativar tema escuro'})).toBeVisible();
 });

@@ -43,7 +43,7 @@ Criação de conta e papéis (ADR-0005, migration `0003_member_access.sql`): qua
 
 ## Tema claro/escuro
 
-O tema efetivo fica em `<html data-theme="light|dark">`. A preferência (Sistema, Claro ou Escuro) é por aparelho, em `localStorage` (`vetor.theme`), e é alternada pelo botão no cabeçalho e na tela de login (`src/components/ThemeToggle.tsx`, `src/theme.ts`). Um script em `index.html` aplica o tema antes do React para não piscar em claro. `src/dark.css` é gerado por `scripts/gen-dark-theme.mjs` a partir dos três CSS claros: cada cor é remapeada em OKLCH conforme o papel (fundo, texto, borda, sombra) e as declarações são copiadas sob `:root[data-theme="dark"]` para preservar a cascata. `tests/dark-theme.test.mjs` falha se o arquivo estiver desatualizado e verifica contraste AA dos textos principais.
+O tema efetivo fica em `<html data-theme="light|dark">`. O botão no cabeçalho e na tela de login alterna entre claro e escuro e salva a escolha por aparelho em `localStorage` (`vetor.theme`); sem escolha salva, segue o tema do aparelho (`src/components/ThemeToggle.tsx`, `src/theme.ts`). Um script em `index.html` aplica o tema antes do React para não piscar em claro. `src/dark.css` é gerado por `scripts/gen-dark-theme.mjs` a partir dos três CSS claros: cada cor é remapeada em OKLCH conforme o papel (fundo, texto, borda, sombra) e as declarações são copiadas sob `:root[data-theme="dark"]` para preservar a cascata. `tests/dark-theme.test.mjs` falha se o arquivo estiver desatualizado e verifica contraste AA dos textos principais.
 
 ## Infraestrutura, testes e segurança
 
